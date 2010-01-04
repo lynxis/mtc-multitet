@@ -25,7 +25,7 @@ STARTING_ZONE_NROWS = 1  # size of the starting zone, in rows
 
 MANIPULATOR_RADIUS = 1.8  # radius of the circular manipulator, in block units
 
-TICKS_PER_LEVEL = 60
+TICKS_PER_LEVEL = 40
 
 def make_cells(str):
     return [[ch != '-' and ch or None for ch in row] for row in str.split()]
@@ -54,19 +54,36 @@ SHAPE_GRIDS = [
 LEVELS = [
     # scale, section_pattern, tick_interval, ticks_per_drop, pieces_per_drop
     (40, [4], 1500, 3, 1),
-    (38, [4], 1200, 5, 4),
-    (36, [4], 1200, 2, 1),
-    (32, [4], 900, 2, 1),
-    (30, [3], 1500, 3, 1),
-    (20, [3], 1200, 3, 1),
-    (10, [3], 900, 3, 1),
-    (40, [3], 1200, 2, 1),
-    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1200, 2, 1),
-    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1000, 2, 1),
-    (40, [3], 1000, 2, 1),
-    (40, [3], 800, 2, 1),
-    (40, [2], 1000, 2, 1),
-    (40, [2], 800, 2, 1),
+    (40, [4], 1200, 3, 1),
+    (40, [4], 1200, 6, 3),
+
+    (40, [3], 1500, 3, 1),
+    (40, [3], 1200, 3, 1),
+    (40, [3], 1200, 6, 3),
+
+    (34, [4], 1500, 3, 1),
+    (34, [4], 1200, 3, 1),
+    (34, [4], 1200, 6, 4),
+
+    (34, [3], 1500, 3, 1),
+    (34, [3], 1200, 3, 1),
+    (34, [3], 1200, 6, 4),
+
+    (30, [4], 1500, 3, 1),
+    (30, [4], 1200, 3, 1),
+    (30, [4], 1200, 6, 5),
+
+    (30, [3], 1500, 3, 1),  # bring in crazy pieces here
+    (30, [3], 1200, 3, 1),
+    (30, [3], 1200, 6, 5),  # impossibly hard
+
+    (26, [4], 1500, 3, 1),
+    (26, [4], 1200, 3, 1),
+    (26, [4], 1200, 6, 6),
+
+    (26, [3], 1500, 3, 1),
+    (26, [3], 1200, 3, 1),
+    (26, [3], 1200, 6, 6),
 ]
 
 def set_handler(node, type, handler):
@@ -600,6 +617,11 @@ class Multitet(AVGApp):
             size=self.size, fillcolor='000000', fillopacity=1)
         self.game_node = create_node(self._parentNode, 'div',
             pos=Point2D(20, 20), size=self.size - Point2D(40, 40))
+        self.pause_button = create_button(
+            self._parentNode, self.leave, pos=Point2D(20, 4), text='Pause')
+        self.level_label = create_node(
+            self._parentNode, 'words', pos=Point2D(self.size.x - 20, 4),
+            text='Level 1', alignment='right')
         self.game_over_node = create_node(self._parentNode, 'div')
         create_node(self.game_over_node, 'rect', pos=self.get_pos(0.25, 0.25),
             size=self.get_pos(0.5, 0.5), fillcolor='000000', fillopacity=0.7)
@@ -624,41 +646,37 @@ class Multitet(AVGApp):
         self.game.pause()
 
     def start_game(self):
+        self.game_over_node.unlink()
+        self.level_label.unlink()
+        self._parentNode.appendChild(self.level_label)
         if self.game:
             self.game.destroy()
-            self.game = None
-        self.game_over_node.unlink()
         self.game = Game(self.game_node, self, *LEVELS[0])
-        self.level = 1
         self.ticks_to_next_level = TICKS_PER_LEVEL
-        self.pause_button = create_button(
-            self._parentNode, self.leave, pos=Point2D(20, 4), text='Pause')
-        self.level_label = create_node(
-            self._parentNode, 'words', pos=Point2D(self.size.x - 20, 4),
-            text='Level 1', alignment='right')
-        self.game.run()
+        self.set_level(1)
 
     def end_game(self):
         self.game.pause()
-        self.pause_button.delete()
-        self.level_label.unlink()
         self.game_over_node.unlink()
         self._parentNode.appendChild(self.game_over_node)
+
+    def set_level(self, level):
+        self.level = level
+        self.game.set_difficulty(*LEVELS[self.level - 1])
+        self.game.pause()
+        self.game.run()
+
+        level_words = create_node(self.game_node, 'words',
+            text='Level %d' % self.level, alignment='center',
+            pos=self.get_pos(0.5, 0.3), fontsize=80, sensitive=False)
+        fadeOut(level_words, 2000)
+        self.level_label.text = 'Level %d' % self.level
 
     def tick(self):
         self.ticks_to_next_level -= 1
         if self.ticks_to_next_level <= 0:
-            self.level = min(self.level + 1, len(LEVELS))
+            self.set_level(min(self.level + 1, len(LEVELS)))
             self.ticks_to_next_level = TICKS_PER_LEVEL
-            self.game.set_difficulty(*LEVELS[self.level - 1])
-            self.game.pause()
-            self.game.run()
-
-            level_words = create_node(self.game_node, 'words',
-                text='Level %d' % self.level, alignment='center',
-                pos=self.get_pos(0.5, 0.3), fontsize=80, sensitive=False)
-            fadeOut(level_words, 2000)
-            self.level_label.text = 'Level %d' % self.level
 
     def quit(self):
         self.start_game()
