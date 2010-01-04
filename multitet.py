@@ -34,6 +34,14 @@ def create_node(parent_node, type, **props):
     parent_node.appendChild(node)
     return node
 
+def create_button(parent_node, callback, **props):
+    button = LabelButton(
+        parent_node, props.get('pos', Point2D(0, 0)),
+        props.get('text', 'Button'), props.get('fontsize', 20), callback)
+    for key in props:
+        setattr(button._node, key, props[key])
+    return button
+
 def set_interval(millis, handler):
     return avg.Player.get().setInterval(millis, handler)
 
@@ -401,6 +409,7 @@ class Level:
         self.tick_interval = tick_interval
         self.ticks_per_piece = ticks_per_piece
         self.ticks_to_next_piece = 1
+        self.want_piece = False
 
         self.pieces = []
         self.dissolving = Grid(self.board.ncolumns, self.board.nrows)
@@ -419,6 +428,16 @@ class Level:
             opacity=0,
             fillcolor='ff0000',
             fillopacity=0.2)
+
+        self.want_piece_buttons = [
+            create_button(parent_node, self.request_piece, text='I can has!',
+                          pos=Point2D(20, 10), alignment='left'),
+            create_button(parent_node, self.request_piece, text='I can has!',
+                          pos=Point2D(self.width - 20, 10), alignment='right')
+        ]
+
+    def request_piece(self):
+        self.want_piece = True
 
     def set_nsections(self, nsections):
         for node in self.section_rects:
@@ -458,6 +477,8 @@ class Level:
             piece.destroy()
         for section_rect in self.section_rects:
             section_rect.unlink()
+        for button in self.want_piece_buttons:
+            button.delete()
         self.board.destroy()
 
     def run(self):
@@ -480,10 +501,11 @@ class Level:
             return
 
         self.ticks_to_next_piece -= 1
-        if (self.ticks_to_next_piece <= 0 or
+        if (self.ticks_to_next_piece <= 0 or self.want_piece or
             not list(self.board.piece_grid.get_blocks())):
             self.add_piece()
             self.ticks_to_next_piece = self.ticks_per_piece
+            self.want_piece = False
 
         self.app.tick()
 
@@ -593,12 +615,16 @@ class Multitet(AVGApp):
             pos=Point2D(width*0.5, height*0.35),
             fontsize=80,
             alignment='center')
-        button = LabelButton(self.game_over_node,
-            Point2D(width*0.35, height*0.65), 'Replay', 40, self.start_level)
-        button._node.alignment = 'center'
-        button = LabelButton(self.game_over_node,
-            Point2D(width*0.65, height*0.65), 'Exit', 40, self.quit)
-        button._node.alignment = 'center'
+        create_button(self.game_over_node, self.start_level,
+            text='Play again',
+            fontsize=40,
+            alignment='left',
+            pos=Point2D(width*0.3, height*0.65))
+        create_button(self.game_over_node, self.quit,
+            text='Exit',
+            fontsize=40,
+            alignment='right',
+            pos=Point2D(width*0.7, height*0.65))
 
         self.start_level()
 
@@ -618,8 +644,8 @@ class Multitet(AVGApp):
         self.level = Level(self.level_node, 40, self, *LEVELS[0])
         self.difficulty = 0
         self.ticks = 0
-        self.exit_button = LabelButton(self._parentNode,
-            Point2D(20, 10), 'Exit', 20, self.leave)
+        self.exit_button = create_button(self._parentNode, self.leave,
+            pos=Point2D(self.size.x/2, 10), text='EXIT', alignment='center')
         self.level.run()
 
     def end_level(self):
