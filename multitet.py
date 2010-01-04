@@ -189,6 +189,16 @@ def make_cells(str):
     return [[ch != '-' and ch or None for ch in row] for row in str.split()]
 
 PIECE_GRIDS = [
+# Crazy pieces!
+#   Grid(5, 5, make_cells('----- -LLL- -L--- -L--- -----')),
+#   Grid(5, 5, make_cells('----- --SSS --SS- ----- -----')),
+#   Grid(5, 5, make_cells('----- -TTT- --T-- --T-- -----')),
+#   Grid(5, 5, make_cells('----- --ZZ- -ZZZ- ----- -----')),
+#   Grid(5, 5, make_cells('----- -IIII --I-- ----- -----')),
+#   Grid(5, 5, make_cells('----- IIII- --I-- ----- -----')),
+#   Grid(5, 5, make_cells('----- -XXX- -XX-- ----- -----')),
+#   Grid(5, 5, make_cells('----- -XX-- -XXX- ----- -----')),
+
     Grid(4, 4, make_cells('---- -FF- -F-- -F--')),  # F-shape
     Grid(4, 4, make_cells('-L-- -L-- -LL- ----')),  # L-shape
     Grid(4, 4, make_cells('--I- --I- --I- --I-')),  # I-shape
@@ -198,7 +208,7 @@ PIECE_GRIDS = [
     Grid(2, 2, make_cells('XX XX')),  # X-shape
 ]
 
-STARTING_ZONE_NROWS = 0
+STARTING_ZONE_NROWS = 1
 
 class Piece:
     """A falling game piece.  This class maintains a Grid for the shape of
@@ -400,9 +410,10 @@ class Level:
     be manipulated; if a piece freezes in the starting zone, the round ends."""
 
     def __init__(self, parent_node, scale, app,
-                 nsections, tick_interval, ticks_per_piece):
+                 section_pattern, tick_interval, ticks_per_piece):
         self.width, self.height = parent_node.size.x, parent_node.size.y
         self.node = create_node(parent_node, 'div')
+        self.section_node = create_node(self.node, 'div', sensitive=False)
         self.board = Board(self.node, int(self.width/scale),
                            int(self.height/scale), Point2D(0, 0), scale)
 
@@ -420,8 +431,8 @@ class Level:
         self.starting_zone = Grid(self.board.ncolumns, STARTING_ZONE_NROWS,
             [row_cells]*STARTING_ZONE_NROWS)
 
-        self.section_rects = []
-        self.set_nsections(nsections)
+        self.section_nodes = []
+        self.set_section_pattern(section_pattern)
 
         # This node shades in the starting zone, and also prevents new pieces
         # from being grabbed until they fall out of the starting zone.
@@ -443,44 +454,46 @@ class Level:
     def request_piece(self):
         self.want_piece = True
 
-    def set_nsections(self, nsections):
-        for node in self.section_rects:
+    def set_section_pattern(self, section_pattern):
+        for node in self.section_nodes:
             node.unlink()
 
-        self.section_rects = []
-        self.filled_sections = []
+        self.section_nodes = []
+        self.sections = []
         fillopacities = [0, 0.1]
+        s = 0
         f = 0
 
-        section_min = 0
-        for i in range(nsections):
-            section_max = int(self.board.ncolumns*float(i + 1)/nsections)
-            section_ncolumns = section_max - section_min
-            section_size = Point2D(
-                section_ncolumns, self.board.nrows)*self.board.scale
+        for r in reversed(range(STARTING_ZONE_NROWS, self.board.nrows)):
+            nsections = section_pattern[s]
+            s = (s + 1) % len(section_pattern)
 
-            section = Grid(self.board.ncolumns, 1)
-            for j in range(section_min, section_max):
-                section.put((j, 0), 'X')
-            self.filled_sections.append(section)
+            section_min = 0
+            for i in range(nsections):
+                section_max = int(self.board.ncolumns*float(i + 1)/nsections)
+                section_ncolumns = section_max - section_min
 
-            self.section_rects.append(create_node(self.node, 'rect',
-                pos=self.board.get_nw_point((section_min, STARTING_ZONE_NROWS)),
-                size=section_size,
-                opacity=0,
-                fillcolor='ffffff',
-                fillopacity=fillopacities[f],
-                sensitive=False))
+                section = Grid(self.board.ncolumns, self.board.nrows)
+                for j in range(section_min, section_max):
+                    section.put((j, r), 'X')
+                self.sections.append(section)
 
-            section_min = section_max
-            f = 1 - f
+                self.section_nodes.append(create_node(self.section_node, 'rect',
+                    pos=self.board.get_nw_point((section_min, r)),
+                    size=Point2D(section_ncolumns, 1)*self.board.scale,
+                    opacity=0.2,
+                    color='ffffff',
+                    sensitive=False))
+
+                section_min = section_max
+                f = 1 - f
 
     def destroy(self):
         self.pause()
         for piece in self.pieces:
             piece.destroy()
-        for section_rect in self.section_rects:
-            section_rect.unlink()
+        for node in self.section_nodes:
+            node.unlink()
         for button in self.want_piece_buttons:
             button.delete()
         self.board.destroy()
@@ -562,16 +575,15 @@ class Level:
 
     def mark_dissolving(self):
         """Mark dissolving blocks (to be deleted on the next tick)."""
-        for r in range(self.board.nrows):
-            for filled_section in self.filled_sections:
-                if self.board.frozen_grid.overlaps_all(filled_section, (0, r)):
-                    self.dissolving.put_all(filled_section, (0, r))
+        for section in self.sections:
+            if self.board.frozen_grid.overlaps_all(section, (0, 0)):
+                self.dissolving.put_all(section, (0, 0))
         self.board.highlight_dissolving(self.dissolving)
 
     def add_piece(self):
         """Place a new Piece with a randomly selected shape at a random
         rotation and position somewhere along the top of the game board."""
-        for attempt in range(100):
+        for attempt in range(10):
             grid = random.choice(PIECE_GRIDS).get_rotated(random.randrange(4))
             blocks = list(grid.get_blocks())
             min_c = min(c for (c, r), value in blocks)
@@ -581,21 +593,23 @@ class Level:
             if self.board.can_put_piece(None, cr, grid):
                 self.pieces.append(Piece(self.node, self.board, cr, grid))
                 return True
-        return False  # couldn't find a location after 100 tries; game over
+        return False  # couldn't find a location after 10 tries; game over
 
 LEVELS = [
-    (4, 1600, 2),
-    (4, 1300, 2),
-    (4, 1000, 3),
-    (3, 1300, 3),
-    (3, 1000, 3),
-    (3, 1000, 2),
-    (3, 800, 2),
-    (3, 600, 2),
-    (2, 1000, 3),
-    (2, 1000, 2),
-    (2, 800, 2),
-    (2, 600, 2),
+    ([4], 1500, 3),
+    ([4], 1200, 3),
+    ([4], 1200, 2),
+    ([4], 900, 2),
+    ([3], 1500, 3),
+    ([3], 1200, 3),
+    ([3], 900, 3),
+    ([3], 1200, 2),
+    ([3, 3, 3, 3, 4, 4, 4, 4], 1200, 2),
+    ([3, 3, 3, 3, 4, 4, 4, 4], 1000, 2),
+    ([3], 1000, 2),
+    ([3], 800, 2),
+    ([2], 1000, 2),
+    ([2], 800, 2),
 ]
 
 class Multitet(AVGApp):
@@ -667,13 +681,14 @@ class Multitet(AVGApp):
 
     def tick(self):
         self.ticks += 1
-        if self.ticks > 60:
+        if self.ticks > 40:
             self.difficulty += 1
             self.ticks = 0
             if self.difficulty >= len(LEVELS):
                 self.difficulty = len(LEVELS) - 1
-            nsections, tick_interval, ticks_per_piece = LEVELS[self.difficulty]
-            self.level.set_nsections(nsections)
+            section_pattern, tick_interval, ticks_per_piece = \
+                LEVELS[self.difficulty]
+            self.level.set_section_pattern(section_pattern)
             self.level.tick_interval = tick_interval
             self.level.ticks_per_piece = ticks_per_piece
             self.level.pause()
@@ -681,6 +696,7 @@ class Multitet(AVGApp):
 
             level_words = create_node(self.level_node, 'words',
                 text='Level %d' % (self.difficulty + 1),
+                alignment='center',
                 pos=self.size/2,
                 fontsize=80)
             fadeOut(level_words, 1000)
