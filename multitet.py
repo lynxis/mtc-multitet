@@ -198,6 +198,8 @@ PIECE_GRIDS = [
     Grid(2, 2, make_cells('XX XX')),  # X-shape
 ]
 
+STARTING_ZONE_NROWS = 0
+
 class Piece:
     """A falling game piece.  This class maintains a Grid for the shape of
     the piece and Nodes that display the piece, and handles player events
@@ -415,7 +417,8 @@ class Level:
         self.dissolving = Grid(self.board.ncolumns, self.board.nrows)
 
         row_cells = 'X'*self.board.ncolumns
-        self.starting_zone = Grid(self.board.ncolumns, 4, [row_cells]*4)
+        self.starting_zone = Grid(self.board.ncolumns, STARTING_ZONE_NROWS,
+            [row_cells]*STARTING_ZONE_NROWS)
 
         self.section_rects = []
         self.set_nsections(nsections)
@@ -423,7 +426,8 @@ class Level:
         # This node shades in the starting zone, and also prevents new pieces
         # from being grabbed until they fall out of the starting zone.
         self.starting_zone_node = create_node(parent_node, 'rect',
-            size=Point2D(self.board.ncolumns, 4)*self.board.scale,
+            size=Point2D(self.board.ncolumns, STARTING_ZONE_NROWS)*
+                self.board.scale,
             pos=self.board.pos,
             opacity=0,
             fillcolor='ff0000',
@@ -461,7 +465,7 @@ class Level:
             self.filled_sections.append(section)
 
             self.section_rects.append(create_node(self.node, 'rect',
-                pos=self.board.get_nw_point((section_min, 4)),
+                pos=self.board.get_nw_point((section_min, STARTING_ZONE_NROWS)),
                 size=section_size,
                 opacity=0,
                 fillcolor='ffffff',
@@ -503,9 +507,11 @@ class Level:
         self.ticks_to_next_piece -= 1
         if (self.ticks_to_next_piece <= 0 or self.want_piece or
             not list(self.board.piece_grid.get_blocks())):
-            self.add_piece()
             self.ticks_to_next_piece = self.ticks_per_piece
             self.want_piece = False
+            if not self.add_piece():
+                self.app.end_level()
+                return
 
         self.app.tick()
 
@@ -565,26 +571,31 @@ class Level:
     def add_piece(self):
         """Place a new Piece with a randomly selected shape at a random
         rotation and position somewhere along the top of the game board."""
-        grid = random.choice(PIECE_GRIDS).get_rotated(random.randrange(4))
-        blocks = list(grid.get_blocks())
-        min_c = min(c for (c, r), value in blocks)
-        max_c = max(c for (c, r), value in blocks)
-        min_r = min(r for (c, r), value in blocks)
-        cr = (random.randrange(-min_c, self.board.ncolumns - max_c), -min_r)
-        self.pieces.append(Piece(self.node, self.board, cr, grid))
+        for attempt in range(100):
+            grid = random.choice(PIECE_GRIDS).get_rotated(random.randrange(4))
+            blocks = list(grid.get_blocks())
+            min_c = min(c for (c, r), value in blocks)
+            max_c = max(c for (c, r), value in blocks)
+            min_r = min(r for (c, r), value in blocks)
+            cr = (random.randrange(-min_c, self.board.ncolumns - max_c), -min_r)
+            if self.board.can_put_piece(None, cr, grid):
+                self.pieces.append(Piece(self.node, self.board, cr, grid))
+                return True
+        return False  # couldn't find a location after 100 tries; game over
 
 LEVELS = [
-    (4, 1600, 4),
-    (4, 1300, 4),
-    (4, 1000, 4),
-    (3, 1600, 4),
-    (3, 1300, 4),
+    (4, 1600, 2),
+    (4, 1300, 2),
+    (4, 1000, 3),
+    (3, 1300, 3),
     (3, 1000, 3),
-    (3, 800, 3),
+    (3, 1000, 2),
+    (3, 800, 2),
+    (3, 600, 2),
     (2, 1000, 3),
-    (2, 800, 3),
+    (2, 1000, 2),
     (2, 800, 2),
-    (2, 600, 2)
+    (2, 600, 2),
 ]
 
 class Multitet(AVGApp):
