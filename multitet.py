@@ -30,17 +30,7 @@ TICKS_PER_LEVEL = 40
 def make_cells(str):
     return [[ch != '-' and ch or None for ch in row] for row in str.split()]
 
-SHAPE_GRIDS = [
-# Crazy pieces!
-#   Grid(5, 5, make_cells('----- -LLL- -L--- -L--- -----')),
-#   Grid(5, 5, make_cells('----- --SSS --SS- ----- -----')),
-#   Grid(5, 5, make_cells('----- -TTT- --T-- --T-- -----')),
-#   Grid(5, 5, make_cells('----- --ZZ- -ZZZ- ----- -----')),
-#   Grid(5, 5, make_cells('----- -IIII --I-- ----- -----')),
-#   Grid(5, 5, make_cells('----- IIII- --I-- ----- -----')),
-#   Grid(5, 5, make_cells('----- -XXX- -XX-- ----- -----')),
-#   Grid(5, 5, make_cells('----- -XX-- -XXX- ----- -----')),
-
+NORMAL_SHAPES = [
     Grid(4, 4, make_cells('---- -FF- -F-- -F--')),  # F-shape
     Grid(4, 4, make_cells('-L-- -L-- -LL- ----')),  # L-shape
     Grid(4, 4, make_cells('--I- --I- --I- --I-')),  # I-shape
@@ -50,40 +40,100 @@ SHAPE_GRIDS = [
     Grid(2, 2, make_cells('XX XX')),  # X-shape
 ]
 
+BIG_SHAPES = [
+    Grid(3, 3, make_cells('XXX X-- X--')),
+    Grid(5, 5, make_cells('--I-- --I-- --I-- --I-- --I--')),
+    Grid(3, 3, make_cells('-SS -SS -S-')),
+    Grid(3, 3, make_cells('ZZ- ZZ- -Z-')),
+    Grid(5, 5, make_cells('--L-- --L-- --L-- --LL- -----')),
+    Grid(5, 5, make_cells('----- --FF- --F-- --F-- --F--')),
+]
+
+TOUGH_SHAPES = [
+    Grid(3, 3, make_cells('TTT -T- -T-')),
+    Grid(4, 4, make_cells('-S-- -S-- -SS- --S-')),
+    Grid(4, 4, make_cells('--Z- --Z- -ZZ- -Z--')),
+    Grid(4, 4, make_cells('-F-- -FF- -F-- -F--')),
+    Grid(4, 4, make_cells('--L- -LL- --L- --L-')),
+    Grid(3, 3, make_cells('--- X-X XXX')),
+]
+
+AWFUL_SHAPES = [
+    Grid(3, 3, make_cells('-X- XXX -X-')),
+    Grid(3, 3, make_cells('LL- -LL -L-')),
+    Grid(3, 3, make_cells('-FF FF- -F-')),
+    Grid(3, 3, make_cells('-SS -S- SS-')),
+    Grid(3, 3, make_cells('ZZ- -Z- -ZZ')),
+    Grid(3, 3, make_cells('II- -II --I')),
+]
+
+EASY_SHAPES = [
+    Grid(2, 2, make_cells('XX X-')),
+    Grid(3, 3, make_cells('-I- -I- -I-')),
+]
+
+TINY_SHAPES = [
+    Grid(1, 1, make_cells('X')),
+]
+
+
 # As levels progress, the scale must not increase (the board cannot shrink)!
 LEVELS = [
-    # scale, section_pattern, tick_interval, ticks_per_drop, pieces_per_drop
-    (40, [4], 1500, 3, 1),
-    (40, [4], 1200, 3, 1),
-    (40, [4], 1200, 6, 3),
+    # scale, sections, tick_interval, ticks_per_drop, pieces_per_drop, shapes
+    (40, [4], 1500, 3, 1, NORMAL_SHAPES),  # Normal
+    (40, [4], 1200, 3, 1, NORMAL_SHAPES),  # Faster
+    (40, [4], 1200, 6, 3, NORMAL_SHAPES),  # Crazy round!
+    (40, [3], 1500, 3, 1, NORMAL_SHAPES),  # Back to normal...
+    (40, [3], 1200, 6, 3, NORMAL_SHAPES),
 
-    (40, [3], 1500, 3, 1),
-    (40, [3], 1200, 3, 1),
-    (40, [3], 1200, 6, 3),
+    # Scale up the board!
+    (34, [4], 1500, 3, 1, NORMAL_SHAPES),
+    (34, [4], 1200, 3, 1, NORMAL_SHAPES),
+    (34, [4], 1200, 6, 4, NORMAL_SHAPES),
+    (34, [3], 1500, 3, 1, NORMAL_SHAPES),
+    (34, [3], 1200, 6, 4, NORMAL_SHAPES),
 
-    (34, [4], 1500, 3, 1),
-    (34, [4], 1200, 3, 1),
-    (34, [4], 1200, 6, 4),
+    # Introduce some new shapes.
+    (34, [4], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES*2),
+    (34, [4], 1200, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES*2),
+    (34, [4], 1200, 6, 3, NORMAL_SHAPES*3 + BIG_SHAPES*2),
+    # Scale up again!  Take one level to recover.
+    (30, [4], 1500, 3, 1, NORMAL_SHAPES),
+    (30, [4], 1200, 6, 4, NORMAL_SHAPES), # Crazy again!
 
-    (34, [3], 1500, 3, 1),
-    (34, [3], 1200, 3, 1),
-    (34, [3], 1200, 6, 4),
+    # A higher proportion of big shapes.
+    (30, [4], 1500, 3, 1, NORMAL_SHAPES + BIG_SHAPES),
+    (30, [4], 1200, 3, 1, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES),
+    # More new shapes!  Add some easy ones to make up for the hard ones.
+    (30, [4], 1200, 6, 3, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
+                          EASY_SHAPES*6),
+    (30, [4], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+                          AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
+    (30, [4], 1500, 6, 3, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+                          AWFUL_SHAPES + EASY_SHAPES*12 + TINY_SHAPES*12),
 
-    (30, [4], 1500, 3, 1),
-    (30, [4], 1200, 3, 1),
-    (30, [4], 1200, 6, 5),
+    # Lightning round!  Fast, but easier.
+    (30, [4], 1000, 3, 1, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
+    (30, [4], 1200, 6, 5, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
+    (30, [4], 800, 6, 5, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
+    # Scale up again.  No easy shapes.
+    (26, [4], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+                          AWFUL_SHAPES),
+    (26, [4], 1200, 6, 3, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
+                          AWFUL_SHAPES),
 
-    (30, [3], 1500, 3, 1),  # bring in crazy pieces here
-    (30, [3], 1200, 3, 1),
-    (30, [3], 1200, 6, 5),  # impossibly hard
+    # Go nuts with the horrible shapes!
+    (26, [4], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+                          AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
+    (26, [4], 1200, 3, 1, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
+                          AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
+    (26, [4], 1200, 6, 4, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
+                          AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
 
-    (26, [4], 1500, 3, 1),
-    (26, [4], 1200, 3, 1),
-    (26, [4], 1200, 6, 6),
-
-    (26, [3], 1500, 3, 1),
-    (26, [3], 1200, 3, 1),
-    (26, [3], 1200, 6, 6),
+    (26, [3], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+                          AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
+    (26, [3], 1200, 6, 4, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
+                          AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
 ]
 
 def set_handler(node, type, handler):
@@ -396,7 +446,7 @@ class Game:
     manipulated; if a piece freezes in the starting zone, the game ends."""
 
     def __init__(self, parent_node, app, scale, section_pattern,
-                 tick_interval, ticks_per_drop, pieces_per_drop):
+                 tick_interval, ticks_per_drop, pieces_per_drop, shapes):
         self.width, self.height = parent_node.size.x, parent_node.size.y
         self.app = app
 
@@ -421,15 +471,16 @@ class Game:
         self.ticks_to_next_drop = 1
         self.section_nodes = None
         self.set_difficulty(scale, section_pattern, tick_interval,
-                            ticks_per_drop, pieces_per_drop)
+                            ticks_per_drop, pieces_per_drop, shapes)
 
-    def set_difficulty(self, scale, section_pattern,
-                       tick_interval, ticks_per_drop, pieces_per_drop):
+    def set_difficulty(self, scale, section_pattern, tick_interval,
+                       ticks_per_drop, pieces_per_drop, shapes):
         self.set_scale(scale)
         self.set_section_pattern(section_pattern)
         self.tick_interval = tick_interval
         self.ticks_per_drop = ticks_per_drop
         self.pieces_per_drop = pieces_per_drop
+        self.shapes = shapes
 
     def set_scale(self, scale):
         # Resize the game board.
@@ -589,8 +640,8 @@ class Game:
     def add_piece(self, c=None):
         """Place a new Piece with a randomly selected shape at a random
         rotation and position somewhere along the top of the game board."""
-        for attempt in range(10):
-            grid = random.choice(SHAPE_GRIDS).get_rotated(random.randrange(4))
+        for attempt in range(1000):
+            grid = random.choice(self.shapes).get_rotated(random.randrange(4))
             blocks = list(grid.get_blocks())
             if c is None:  # Choose a random position.
                 min_c = min(c for (c, r), value in blocks)
@@ -602,7 +653,7 @@ class Game:
             if self.board.can_put_piece(None, cr, grid):
                 self.pieces.append(Piece(self.node, self.board, cr, grid))
                 return True
-        return False  # couldn't find a location after 10 tries
+        return False  # couldn't find a location after 1000 tries
 
 class Multitet(AVGApp):
     multitouch = True
