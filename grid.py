@@ -44,6 +44,14 @@ class Grid:
     def clear(self):
         self.cells = [[None]*self.ncolumns for r in range(self.nrows)]
 
+    def grow(self, ncolumns, nrows):
+        """Expand to a larger size, anchoring to the bottom-left corner."""
+        for row in self.cells:
+            row.extend([None]*(ncolumns - self.ncolumns))
+        self.cells[:0] = [[None]*ncolumns for r in range(nrows - self.nrows)]
+        self.ncolumns = ncolumns
+        self.nrows = nrows
+
     def get(self, (c, r)):
         """Get the value of the cell in column c of row r."""
         return self.cells[r][c]

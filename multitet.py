@@ -50,15 +50,16 @@ SHAPE_GRIDS = [
     Grid(2, 2, make_cells('XX XX')),  # X-shape
 ]
 
+# As levels progress, the scale must not increase (the board cannot shrink)!
 LEVELS = [
     # scale, section_pattern, tick_interval, ticks_per_drop, pieces_per_drop
     (40, [4], 1500, 3, 1),
-    (40, [4], 1200, 5, 4),
-    (40, [4], 1200, 2, 1),
-    (40, [4], 900, 2, 1),
-    (40, [3], 1500, 3, 1),
-    (40, [3], 1200, 3, 1),
-    (40, [3], 900, 3, 1),
+    (38, [4], 1200, 5, 4),
+    (36, [4], 1200, 2, 1),
+    (32, [4], 900, 2, 1),
+    (30, [3], 1500, 3, 1),
+    (20, [3], 1200, 3, 1),
+    (10, [3], 900, 3, 1),
     (40, [3], 1200, 2, 1),
     (40, [3, 3, 3, 3, 4, 4, 4, 4], 1200, 2, 1),
     (40, [3, 3, 3, 3, 4, 4, 4, 4], 1000, 2, 1),
@@ -291,20 +292,22 @@ class Board:
         self.scale = float(scale)
         self.size = Point2D(ncolumns, nrows)*self.scale
         self.block_size = Point2D(self.scale, self.scale)
-        old_piece_grid, old_frozen_grid = self.piece_grid, self.frozen_grid
-        self.piece_grid = Grid(ncolumns, nrows)  # contains Piece references
-        self.frozen_grid = Grid(ncolumns, nrows)  # contains Node references
-        if old_piece_grid:
-            # Copy the old grids, anchoring the bottom-left corner.
-            nw_corner = (0, nrows - old_piece_grid.nrows)
-            self.piece_grid.put_all(old_piece_grid, nw_corner)
-            self.frozen_grid.put_all(old_frozen_grid, nw_corner)
-            for cr, value in self.piece_grid.get_blocks():
-                value.update_blocks()
-                value.update_manip()
+        if self.piece_grid:
+            row_offset = nrows - self.piece_grid.nrows
+            self.piece_grid.grow(ncolumns, nrows)
+            self.frozen_grid.grow(ncolumns, nrows)
+            pieces = set(value for cr, value in self.piece_grid.get_blocks())
+            for piece in pieces:
+                c, r = piece.cr
+                piece.cr = (c, r + row_offset)
+                piece.update_blocks()
+                piece.update_manip()
             for cr, value in self.frozen_grid.get_blocks():
                 value.pos = self.get_nw_point(cr)
                 value.size = self.block_size
+        else:
+            self.piece_grid = Grid(ncolumns, nrows)  # contains Piece references
+            self.frozen_grid = Grid(ncolumns, nrows)  # contains Node references
 
     def destroy(self):
         for cr, value in self.frozen_grid.get_blocks():
@@ -417,14 +420,10 @@ class Game:
             Point2D(0, self.height % scale), scale)
         self.board_rect.pos = self.board.pos
         self.board_rect.size = self.board.size
-
-        # Resize the map of dissolving blocks.
-        old_dissolving = self.dissolving
-        self.dissolving = Grid(self.board.ncolumns, self.board.nrows)
-        if old_dissolving:
-            # Copy the old grid, anchoring the bottom-left corner.
-            nw_corner = (0, self.board.nrows - old_dissolving.nrows)
-            self.dissolving.put_all(old_dissolving, nw_corner)
+        if self.dissolving:
+            self.dissolving.grow(self.board.ncolumns, self.board.nrows)
+        else:
+            self.dissolving = Grid(self.board.ncolumns, self.board.nrows)
 
         # Set up the starting zone.
         self.starting_zone = Grid(self.board.ncolumns, STARTING_ZONE_NROWS,
@@ -642,6 +641,7 @@ class Multitet(AVGApp):
     def end_game(self):
         self.game.pause()
         self.pause_button.delete()
+        self.level_label.delete()
         self.game_over_node.unlink()
         self._parentNode.appendChild(self.game_over_node)
 
