@@ -70,13 +70,6 @@ def get_heading(origin, point):
     heading = 90 - degrees  # 0 = north, 90 = east
     return (heading + 360) % 360
 
-def get_vector(heading, radius):
-    """Get the x and y offsets for a screen vector with the given heading
-    in degrees (where 0 is north and 90 is east) and given radius in pixels."""
-    degrees = 90 - heading  # 0 = east, 90 = north
-    radians = degrees*math.pi/180  # 0 = east, pi/2 = north
-    return Point2D(radius*math.cos(radians), -radius*math.sin(radians))
-
 def add_cr((c1, r1), (c2, r2)):
     """Add two (column, row) pairs together."""
     return (c1 + c2, r1 + r2)
@@ -229,7 +222,6 @@ PIECE_GRIDS = [
 ]
 
 STARTING_ZONE_NROWS = 1
-
 MANIPULATOR_RADIUS = 1.6  # radius of the circular manipulator, in block units
 
 class Piece:
@@ -245,15 +237,13 @@ class Piece:
         self.parent_node = parent_node
         self.board = board
 
-        self.cursors = {}  # Current positions of grabbing cursors.
+        self.touches = {}  # Current positions of touches on this piece.
 
-        self.translation_id = None  # Cursor that controls translation.
-        self.grab_point = None  # Initial grab point when grabbed.
+        self.grab_centroid = None  # Centroid of initial grab points.
         self.grab_cr = None  # Initial grid position when grabbed.
 
-        self.rotation_id = None  # Cursor that controls rotation.
+        self.grab_heading = None  # Direction indicated by initial grab points.
         self.grab_grid = None  # Initial grid shape when grabbed.
-        self.grab_heading = None  # Initial vector direction when grabbed.
 
         # Just create the nodes; self.move_to() will position them.
         self.block_nodes = []
@@ -268,14 +258,10 @@ class Piece:
         # The manipulator is initially behind all other nodes.
         self.manip_node = create_node(self.parent_node, 'circle',
             r=self.board.scale*MANIPULATOR_RADIUS,
-            color='000000',
-            opacity=0,
-            fillcolor='ffffff',
-            fillopacity=0)
+            color='000000', opacity=0, fillcolor='ffffff', fillopacity=0)
         set_handler(self.manip_node, avg.CURSORDOWN, self.handle_down)
         set_handler(self.manip_node, avg.CURSORMOTION, self.handle_motion)
         set_handler(self.manip_node, avg.CURSORUP, self.handle_up)
-        lower_node(self.manip_node)
 
         self.move_to(cr, grid)
 
@@ -290,77 +276,80 @@ class Piece:
         for cr, value in self.grid.get_blocks():
             yield add_cr(self.cr, cr), value
 
-    def update_nodes(self):
+    def is_grabbed(self):
+        return self.touches
+
+    def update_blocks(self):
         """Update the image nodes for this piece's blocks."""
         for node, (cr, value) in zip(self.block_nodes, self.get_blocks()):
             node.href = 'falling-%s.png' % value
             node.pos = self.board.get_nw_point(cr)
             node.size = self.board.block_size
-        self.manip_node.pos = self.board.get_nw_point(
+
+    def update_manip(self):
+        """Update the display of the piece's manipulator."""
+        center = self.board.get_nw_point(
             add_cr(self.cr, (self.grid.ncolumns*0.5, self.grid.nrows*0.5)))
+        self.manip_node.pos = center
 
-    def handle_down(self, event):
-        if len(self.cursors) < 2:  # Ignore third and subsequent grabs.
-            self.cursors[event.cursorid] = event.pos
-            start_capture(self.block_nodes[0], event.cursorid)
-
-            # Show the manipulator.
+        if self.touches:
             raise_node(self.manip_node)
-            self.manip_node.fillopacity = 0.15
-
-            if len(self.cursors) == 1:  # First grab: grab for translation.
-                self.translation_id = event.cursorid
-                self.grab_point = event.pos
-                self.grab_cr = self.cr
-
-            if len(self.cursors) == 2:  # Second grab: grab for rotation.
-                self.rotation_id = event.cursorid
-                self.grab_grid = self.grid
-                self.grab_heading = get_heading(
-                    self.cursors[self.translation_id],
-                    self.cursors[self.rotation_id])
-
-    def handle_up(self, event):
-        if event.cursorid in self.cursors:
-            del self.cursors[event.cursorid]
-            end_capture(self.block_nodes[0], event.cursorid)
-
-        if len(self.cursors) == 1:  # Stop rotation; restart translation.
-            self.translation_id = self.cursors.keys()[0]
-            self.rotation_id = None
-            self.grab_point = self.cursors[self.translation_id]
-            self.grab_cr = self.cr
-
-        if len(self.cursors) == 0:  # Stop translation and rotation.
-            self.translation_id = None
-            self.rotation_id = None
-
-            # Hide the manipulator.
+            self.manip_node.fillopacity = 0.15 * len(self.touches)
+        else:
             lower_node(self.manip_node)
             self.manip_node.fillopacity = 0
 
+    def handle_down(self, event):
+        if len(self.touches) == 2:  # Ignore third and subsequent touches.
+            return
+        self.touches[event.cursorid] = event.pos
+        start_capture(self.block_nodes[0], event.cursorid)
+
+        # On the first or second touch, start a translation grab.
+        self.grab_centroid = get_centroid(self.touches.values())
+        self.grab_cr = self.cr
+
+        # On the second touch, also start a rotation grab. 
+        if len(self.touches) == 2:
+            self.grab_heading = get_heading(*self.touches.values())
+            self.grab_grid = self.grid
+
+        self.update_manip()
+
+    def handle_up(self, event):
+        if event.cursorid in self.touches:
+            del self.touches[event.cursorid]
+            end_capture(self.block_nodes[0], event.cursorid)
+
+        if len(self.touches) == 1:  # Reset any remaining translation grab.
+            self.grab_centroid = get_centroid(self.touches.values())
+            self.grab_cr = self.cr
+
+        self.update_manip()
+
     def handle_motion(self, event):
-        if event.cursorid in self.cursors:
-            self.cursors[event.cursorid] = event.pos
-            new_grid = self.grid
+        if event.cursorid not in self.touches:  # Ignore extraneous touches.
+            return
 
-            if self.translation_id:  # Update translation.
-                new_point = self.cursors[self.translation_id]
-                delta_point = new_point - self.grab_point
-                delta_c = int(round(delta_point.x/self.board.scale))
-                delta_r = int(round(delta_point.y/self.board.scale))
-                new_cr = add_cr(self.grab_cr, (delta_c, max(0, delta_r)))
+        self.touches[event.cursorid] = event.pos
+        new_grid = self.grid
 
-            if self.rotation_id:  # Update rotation.
-                new_heading = get_heading(
-                    self.cursors[self.translation_id],
-                    self.cursors[self.rotation_id])
-                delta_heading = new_heading - self.grab_heading
-                cw_quarter_turns = int(round(delta_heading/90))
-                new_grid = self.grab_grid.get_rotated(cw_quarter_turns)
+        # Always update translation.
+        new_centroid = get_centroid(self.touches.values())
+        delta_centroid = new_centroid - self.grab_centroid
+        delta_c = int(round(delta_centroid.x/self.board.scale))
+        delta_r = int(round(delta_centroid.y/self.board.scale))
+        new_cr = add_cr(self.grab_cr, (delta_c, max(0, delta_r)))
 
-            if self.board.can_put_piece(self, new_cr, new_grid):
-                self.move_to(new_cr, new_grid)
+        # If there are two touches, update rotation.
+        if len(self.touches) == 2:
+            new_heading = get_heading(*self.touches.values())
+            delta_heading = new_heading - self.grab_heading
+            cw_quarter_turns = int(round(delta_heading/90))
+            new_grid = self.grab_grid.get_rotated(cw_quarter_turns)
+
+        if self.board.can_put_piece(self, new_cr, new_grid):
+            self.move_to(new_cr, new_grid)
 
     def move_to(self, cr, grid=None):
         """Move this Piece to the given grid position, optionally with a new
@@ -368,7 +357,8 @@ class Piece:
         responsible for avoiding overlaps with existing blocks on the Board."""
         self.cr = cr
         self.grid = grid or self.grid
-        self.update_nodes()
+        self.update_blocks()
+        self.update_manip()
         self.board.put_piece(self)
 
 class Board:
@@ -412,8 +402,7 @@ class Board:
         self.piece_grid.remove_value(piece)
         for cr, value in piece.get_blocks():
             self.frozen_grid.put(cr, create_node(self.parent_node, 'image',
-                size=self.block_size,
-                href='frozen-%s.png' % value,
+                size=self.block_size, href='frozen-%s.png' % value,
                 pos=self.get_nw_point(cr)))
         piece.destroy()
 
@@ -480,15 +469,11 @@ class Level:
         self.section_nodes = []
         self.set_section_pattern(section_pattern)
 
-        # This node shades in the starting zone, and also prevents new pieces
-        # from being grabbed until they fall out of the starting zone.
+        # This rectangle shades in the starting zone, and also prevents new
+        # pieces from being grabbed until they fall out of the starting zone.
         self.starting_zone_node = create_node(parent_node, 'rect',
-            size=Point2D(self.board.ncolumns, STARTING_ZONE_NROWS)*
-                self.board.scale,
-            pos=self.board.pos,
-            opacity=0,
-            fillcolor='ff0000',
-            fillopacity=0.2)
+            size=Point2D(self.board.ncolumns, STARTING_ZONE_NROWS)*scale,
+            pos=self.board.pos, opacity=0, fillcolor='ff0000', fillopacity=0.2)
 
         self.want_piece_buttons = [
             create_button(parent_node, self.request_piece, text='Gimme!',
@@ -597,7 +582,7 @@ class Level:
         stopped = transitive_closure(stopped, supported_pieces)
 
         # 3. Suspend pieces that are grabbed, and pieces they support.
-        suspended = set(piece for piece in self.pieces if piece.translation_id)
+        suspended = set(piece for piece in self.pieces if piece.is_grabbed())
         suspended = transitive_closure(suspended, supported_pieces)
 
         # 4. Freeze all stopped pieces.
@@ -673,26 +658,15 @@ class Multitet(AVGApp):
         self.level_rect = create_node(self.level_node, 'rect',
             size=self.level_node.size, color='a0a0a0', strokewidth=4)
         self.game_over_node = create_node(self._parentNode, 'div')
-        create_node(self.game_over_node, 'rect',
-            pos=self.size/4,
-            size=self.size/2,
-            fillcolor='000000',
-            fillopacity=0.7)
-        create_node(self.game_over_node, 'words',
-            text='Game over',
+        create_node(self.game_over_node, 'rect', pos=self.size*0.25,
+            size=self.size*0.5, fillcolor='000000', fillopacity=0.7)
+        create_node(self.game_over_node, 'words', text='Game over',
             pos=Point2D(width*0.5, height*0.35),
-            fontsize=80,
-            alignment='center')
-        create_button(self.game_over_node, self.start_level,
-            text='Play again',
-            fontsize=40,
-            alignment='left',
-            pos=Point2D(width*0.3, height*0.65))
-        create_button(self.game_over_node, self.quit,
-            text='Exit',
-            fontsize=40,
-            alignment='right',
-            pos=Point2D(width*0.7, height*0.65))
+            fontsize=80, alignment='center')
+        create_button(self.game_over_node, self.start_level, text='Play again',
+            fontsize=40, alignment='left', pos=Point2D(width*0.3, height*0.65))
+        create_button(self.game_over_node, self.quit, text='Exit',
+            fontsize=40, alignment='right', pos=Point2D(width*0.7, height*0.65))
 
         self.start_level()
 
@@ -738,11 +712,8 @@ class Multitet(AVGApp):
             self.level.run()
 
             level_words = create_node(self.level_node, 'words',
-                text='Level %d' % (self.difficulty + 1),
-                alignment='center',
-                pos=self.size/2,
-                fontsize=80,
-                sensitive=False)
+                text='Level %d' % (self.difficulty + 1), alignment='center',
+                pos=self.size/2, fontsize=80, sensitive=False)
             fadeOut(level_words, 2000)
 
     def quit(self):
