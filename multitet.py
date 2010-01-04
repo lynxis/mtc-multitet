@@ -34,6 +34,16 @@ def create_node(parent_node, type, **props):
     parent_node.appendChild(node)
     return node
 
+def raise_node(node):
+    parent_node = node.getParent()
+    parent_node.removeChild(node)
+    parent_node.appendChild(node)
+
+def lower_node(node):
+    parent_node = node.getParent()
+    parent_node.removeChild(node)
+    parent_node.insertChild(node, 0)
+
 def create_button(parent_node, callback, **props):
     button = LabelButton(
         parent_node, props.get('pos', Point2D(0, 0)),
@@ -48,14 +58,24 @@ def set_interval(millis, handler):
 def clear_interval(id):
     avg.Player.get().clearInterval(id)
 
+def get_centroid(points):
+    return sum(points, Point2D(0.0, 0.0))/len(points)
+
 def get_heading(origin, point):
-    """Get the direction of the vector from 'origin' to 'point' as a value
-    in degrees from 0 to 360, where 0 is north and 90 is east."""
+    """Get the direction of the screen vector from 'origin' to 'point' as a
+    value in degrees from 0 to 360, where 0 is north and 90 is east."""
     vector = point - origin
     radians = math.atan2(-vector.y, vector.x)  # 0 = east, pi/2 = north
     degrees = radians*180/math.pi  # 0 = east, 90 = north
     heading = 90 - degrees  # 0 = north, 90 = east
     return (heading + 360) % 360
+
+def get_vector(heading, radius):
+    """Get the x and y offsets for a screen vector with the given heading
+    in degrees (where 0 is north and 90 is east) and given radius in pixels."""
+    degrees = 90 - heading  # 0 = east, 90 = north
+    radians = degrees*math.pi/180  # 0 = east, pi/2 = north
+    return Point2D(radius*math.cos(radians), -radius*math.sin(radians))
 
 def add_cr((c1, r1), (c2, r2)):
     """Add two (column, row) pairs together."""
@@ -210,6 +230,8 @@ PIECE_GRIDS = [
 
 STARTING_ZONE_NROWS = 1
 
+MANIPULATOR_RADIUS = 1.6  # radius of the circular manipulator, in block units
+
 class Piece:
     """A falling game piece.  This class maintains a Grid for the shape of
     the piece and Nodes that display the piece, and handles player events
@@ -242,12 +264,26 @@ class Piece:
             set_handler(block_node, avg.CURSORUP, self.handle_up)
             self.block_nodes.append(block_node)
 
+        # Provide a circular manipulator to make the piece easier to grab.
+        # The manipulator is initially behind all other nodes.
+        self.manip_node = create_node(self.parent_node, 'circle',
+            r=self.board.scale*MANIPULATOR_RADIUS,
+            color='000000',
+            opacity=0,
+            fillcolor='ffffff',
+            fillopacity=0)
+        set_handler(self.manip_node, avg.CURSORDOWN, self.handle_down)
+        set_handler(self.manip_node, avg.CURSORMOTION, self.handle_motion)
+        set_handler(self.manip_node, avg.CURSORUP, self.handle_up)
+        lower_node(self.manip_node)
+
         self.move_to(cr, grid)
 
     def destroy(self):
         """Remove this Piece from the display."""
         for node in self.block_nodes:
             node.unlink()
+        self.manip_node.unlink()
 
     def get_blocks(self):
         """Get the grid positions of the blocks that make up this piece."""
@@ -260,11 +296,17 @@ class Piece:
             node.href = 'falling-%s.png' % value
             node.pos = self.board.get_nw_point(cr)
             node.size = self.board.block_size
+        self.manip_node.pos = self.board.get_nw_point(
+            add_cr(self.cr, (self.grid.ncolumns*0.5, self.grid.nrows*0.5)))
 
     def handle_down(self, event):
         if len(self.cursors) < 2:  # Ignore third and subsequent grabs.
             self.cursors[event.cursorid] = event.pos
             start_capture(self.block_nodes[0], event.cursorid)
+
+            # Show the manipulator.
+            raise_node(self.manip_node)
+            self.manip_node.fillopacity = 0.15
 
             if len(self.cursors) == 1:  # First grab: grab for translation.
                 self.translation_id = event.cursorid
@@ -292,6 +334,10 @@ class Piece:
         if len(self.cursors) == 0:  # Stop translation and rotation.
             self.translation_id = None
             self.rotation_id = None
+
+            # Hide the manipulator.
+            lower_node(self.manip_node)
+            self.manip_node.fillopacity = 0
 
     def handle_motion(self, event):
         if event.cursorid in self.cursors:
@@ -445,9 +491,9 @@ class Level:
             fillopacity=0.2)
 
         self.want_piece_buttons = [
-            create_button(parent_node, self.request_piece, text='I can has!',
+            create_button(parent_node, self.request_piece, text='Gimme!',
                           pos=Point2D(20, 10), alignment='left'),
-            create_button(parent_node, self.request_piece, text='I can has!',
+            create_button(parent_node, self.request_piece, text='Gimme!',
                           pos=Point2D(self.width - 20, 10), alignment='right')
         ]
 
