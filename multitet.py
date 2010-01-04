@@ -52,6 +52,9 @@ def create_button(parent_node, callback, **props):
         setattr(button._node, key, props[key])
     return button
 
+def set_timeout(millis, handler):
+    return avg.Player.get().setTimeout(millis, handler)
+
 def set_interval(millis, handler):
     return avg.Player.get().setInterval(millis, handler)
 
@@ -222,7 +225,7 @@ PIECE_GRIDS = [
 ]
 
 STARTING_ZONE_NROWS = 1
-MANIPULATOR_RADIUS = 1.6  # radius of the circular manipulator, in block units
+MANIPULATOR_RADIUS = 1.8  # radius of the circular manipulator, in block units
 
 class Piece:
     """A falling game piece.  This class maintains a Grid for the shape of
@@ -449,15 +452,15 @@ class Level:
         self.width, self.height = parent_node.size.x, parent_node.size.y
         self.node = create_node(parent_node, 'div')
         self.section_node = create_node(self.node, 'div', sensitive=False)
-        self.board = Board(self.node, int(self.width/scale),
-                           int(self.height/scale), Point2D(0, 0), scale)
+        self.board = Board(self.node,
+                           int(self.width/scale), int(self.height/scale),
+                           Point2D(0, self.height % scale), scale)
 
         self.app = app
         self.interval_id = None
         self.tick_interval = tick_interval
         self.ticks_per_piece = ticks_per_piece
         self.ticks_to_next_piece = 1
-        self.want_piece = False
 
         self.pieces = []
         self.dissolving = Grid(self.board.ncolumns, self.board.nrows)
@@ -469,21 +472,23 @@ class Level:
         self.section_nodes = []
         self.set_section_pattern(section_pattern)
 
-        # This rectangle shades in the starting zone, and also prevents new
-        # pieces from being grabbed until they fall out of the starting zone.
+        # The starting zone can be touched to request more pieces.
         self.starting_zone_node = create_node(parent_node, 'rect',
             size=Point2D(self.board.ncolumns, STARTING_ZONE_NROWS)*scale,
             pos=self.board.pos, opacity=0, fillcolor='ff0000', fillopacity=0.2)
+        set_handler(self.starting_zone_node, avg.CURSORDOWN, self.handle_down)
+        self.can_add_pieces = True  # For debouncing taps on the starting zone.
 
-        self.want_piece_buttons = [
-            create_button(parent_node, self.request_piece, text='Gimme!',
-                          pos=Point2D(20, 10), alignment='left'),
-            create_button(parent_node, self.request_piece, text='Gimme!',
-                          pos=Point2D(self.width - 20, 10), alignment='right')
-        ]
+    def handle_down(self, event):
+        if self.can_add_pieces:
+            self.starting_zone_node.fillopacity = 0.4
+            self.add_piece(self.board.get_cr(event.pos)[0])
+            self.can_add_pieces = False  # Ignore extraneous double-taps.
+            set_timeout(300, self.reset_starting_zone)
 
-    def request_piece(self):
-        self.want_piece = True
+    def reset_starting_zone(self):
+        self.starting_zone_node.fillopacity = 0.2
+        self.can_add_pieces = True
 
     def set_section_pattern(self, section_pattern):
         for node in self.section_nodes:
@@ -522,9 +527,10 @@ class Level:
             piece.destroy()
         for node in self.section_nodes:
             node.unlink()
-        for button in self.want_piece_buttons:
-            button.delete()
         self.board.destroy()
+        self.node.unlink()
+        self.section_node.unlink()
+        self.starting_zone_node.unlink()
 
     def run(self):
         self.pause()
@@ -546,10 +552,9 @@ class Level:
             return
 
         self.ticks_to_next_piece -= 1
-        if (self.ticks_to_next_piece <= 0 or self.want_piece or
+        if (self.ticks_to_next_piece <= 0 or
             not list(self.board.piece_grid.get_blocks())):
             self.ticks_to_next_piece = self.ticks_per_piece
-            self.want_piece = False
             if not self.add_piece():
                 self.app.end_level()
                 return
@@ -608,20 +613,23 @@ class Level:
                 self.dissolving.put_all(section, (0, 0))
         self.board.highlight_dissolving(self.dissolving)
 
-    def add_piece(self):
+    def add_piece(self, c=None):
         """Place a new Piece with a randomly selected shape at a random
         rotation and position somewhere along the top of the game board."""
         for attempt in range(10):
             grid = random.choice(PIECE_GRIDS).get_rotated(random.randrange(4))
             blocks = list(grid.get_blocks())
-            min_c = min(c for (c, r), value in blocks)
-            max_c = max(c for (c, r), value in blocks)
-            min_r = min(r for (c, r), value in blocks)
-            cr = (random.randrange(-min_c, self.board.ncolumns - max_c), -min_r)
+            if c is None:  # Choose a random position.
+                min_c = min(c for (c, r), value in blocks)
+                max_c = max(c for (c, r), value in blocks)
+                c = random.randrange(-min_c, self.board.ncolumns - max_c)
+            else:  # Add the piece at the requested position.
+                c -= grid.ncolumns/2
+            cr = (c, -min(r for (c, r), value in blocks))
             if self.board.can_put_piece(None, cr, grid):
                 self.pieces.append(Piece(self.node, self.board, cr, grid))
                 return True
-        return False  # couldn't find a location after 10 tries; game over
+        return False  # couldn't find a location after 10 tries
 
 LEVELS = [
     ([4], 1500, 3),
