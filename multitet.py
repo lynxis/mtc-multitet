@@ -20,6 +20,31 @@ from libavg.AVGAppUtil import getMediaDir
 from buttons import LabelButton
 import math, random
 
+STARTING_ZONE_NROWS = 1
+MANIPULATOR_RADIUS = 1.8  # radius of the circular manipulator, in block units
+
+TICKS_PER_LEVEL = 60
+
+LEVELS = [
+    # scale, section_pattern, tick_interval, ticks_per_drop, pieces_per_drop
+    (40, [4], 1500, 3, 1),
+    (40, [4], 1200, 5, 4),
+    (40, [4], 1200, 2, 1),
+    (40, [4], 900, 2, 1),
+    (40, [3], 1500, 3, 1),
+    (40, [3], 1200, 3, 1),
+    (40, [3], 900, 3, 1),
+    (40, [3], 1200, 2, 1),
+    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1200, 2, 1),
+    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1000, 2, 1),
+    (40, [3], 1000, 2, 1),
+    (40, [3], 800, 2, 1),
+    (40, [2], 1000, 2, 1),
+    (40, [2], 800, 2, 1),
+]
+
+# See below the Grid class for the definitions of piece shapes.
+
 def set_handler(node, type, handler):
     node.setEventHandler(type, avg.MOUSE | avg.TOUCH, handler)
 
@@ -204,7 +229,7 @@ class Grid:
 def make_cells(str):
     return [[ch != '-' and ch or None for ch in row] for row in str.split()]
 
-PIECE_GRIDS = [
+SHAPE_GRIDS = [
 # Crazy pieces!
 #   Grid(5, 5, make_cells('----- -LLL- -L--- -L--- -----')),
 #   Grid(5, 5, make_cells('----- --SSS --SS- ----- -----')),
@@ -222,29 +247,6 @@ PIECE_GRIDS = [
     Grid(3, 3, make_cells('ZZ- -ZZ ---')),  # Z-shape
     Grid(3, 3, make_cells('--- TTT -T-')),  # T-shape
     Grid(2, 2, make_cells('XX XX')),  # X-shape
-]
-
-STARTING_ZONE_NROWS = 1
-MANIPULATOR_RADIUS = 1.8  # radius of the circular manipulator, in block units
-
-TICKS_PER_LEVEL = 10
-
-LEVELS = [
-    # scale, section_pattern, tick_interval, ticks_per_drop, pieces_per_drop
-    (40, [4], 1500, 3, 1),
-    (40, [4], 1200, 5, 4),
-    (40, [4], 1200, 2, 1),
-    (40, [4], 900, 2, 1),
-    (40, [3], 1500, 3, 1),
-    (40, [3], 1200, 3, 1),
-    (40, [3], 900, 3, 1),
-    (40, [3], 1200, 2, 1),
-    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1200, 2, 1),
-    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1000, 2, 1),
-    (40, [3], 1000, 2, 1),
-    (40, [3], 800, 2, 1),
-    (40, [2], 1000, 2, 1),
-    (40, [2], 800, 2, 1),
 ]
 
 class Piece:
@@ -684,7 +686,7 @@ class Game:
         """Place a new Piece with a randomly selected shape at a random
         rotation and position somewhere along the top of the game board."""
         for attempt in range(10):
-            grid = random.choice(PIECE_GRIDS).get_rotated(random.randrange(4))
+            grid = random.choice(SHAPE_GRIDS).get_rotated(random.randrange(4))
             blocks = list(grid.get_blocks())
             if c is None:  # Choose a random position.
                 min_c = min(c for (c, r), value in blocks)
@@ -706,25 +708,25 @@ class Multitet(AVGApp):
 
         self.game = None
         self.size = self._parentNode.size
-        width = self.size.x
-        height = self.size.y
 
         self.background = create_node(self._parentNode, 'rect',
             size=self.size, fillcolor='000000', fillopacity=1)
-        self.level_node = create_node(self._parentNode, 'div',
-            pos=Point2D(20, 20), size=Point2D(width - 40, height - 40))
+        self.game_node = create_node(self._parentNode, 'div',
+            pos=Point2D(20, 20), size=self.size - Point2D(40, 40))
         self.game_over_node = create_node(self._parentNode, 'div')
-        create_node(self.game_over_node, 'rect', pos=self.size*0.25,
-            size=self.size*0.5, fillcolor='000000', fillopacity=0.7)
+        create_node(self.game_over_node, 'rect', pos=self.get_pos(0.25, 0.25),
+            size=self.get_pos(0.5, 0.5), fillcolor='000000', fillopacity=0.7)
         create_node(self.game_over_node, 'words', text='Game over',
-            pos=Point2D(width*0.5, height*0.35),
-            fontsize=80, alignment='center')
+            pos=self.get_pos(0.5, 0.35), fontsize=80, alignment='center')
         create_button(self.game_over_node, self.start_game, text='Play again',
-            fontsize=40, alignment='left', pos=Point2D(width*0.3, height*0.65))
+            fontsize=40, alignment='left', pos=self.get_pos(0.3, 0.65))
         create_button(self.game_over_node, self.quit, text='Exit',
-            fontsize=40, alignment='right', pos=Point2D(width*0.7, height*0.65))
+            fontsize=40, alignment='right', pos=self.get_pos(0.7, 0.65))
 
         self.start_game()
+
+    def get_pos(self, fraction_x, fraction_y):
+        return Point2D(self.size.x*fraction_x, self.size.y*fraction_y)
 
     def _enter(self):
         if not self.game:
@@ -739,9 +741,9 @@ class Multitet(AVGApp):
             self.game.destroy()
             self.game = None
         self.game_over_node.unlink()
-        self.game = Game(self.level_node, self, *LEVELS[0])
-        self.difficulty = 0
-        self.ticks = 0
+        self.game = Game(self.game_node, self, *LEVELS[0])
+        self.level = 1
+        self.ticks_to_next_level = TICKS_PER_LEVEL
         self.pause_button = create_button(
             self._parentNode, self.leave, pos=Point2D(20, 4), text='Pause')
         self.level_label = create_node(
@@ -756,21 +758,19 @@ class Multitet(AVGApp):
         self._parentNode.appendChild(self.game_over_node)
 
     def tick(self):
-        self.ticks += 1
-        if self.ticks == TICKS_PER_LEVEL:
-            self.difficulty += 1
-            self.ticks = 0
-            if self.difficulty >= len(LEVELS):
-                self.difficulty = len(LEVELS) - 1
-            self.game.set_difficulty(*LEVELS[self.difficulty])
+        self.ticks_to_next_level -= 1
+        if self.ticks_to_next_level <= 0:
+            self.level = min(self.level + 1, len(LEVELS))
+            self.ticks_to_next_level = TICKS_PER_LEVEL
+            self.game.set_difficulty(*LEVELS[self.level - 1])
             self.game.pause()
             self.game.run()
 
-            level_words = create_node(self.level_node, 'words',
-                text='Level %d' % (self.difficulty + 1), alignment='center',
-                pos=self.size/2, fontsize=80, sensitive=False)
+            level_words = create_node(self.game_node, 'words',
+                text='Level %d' % self.level, alignment='center',
+                pos=self.get_pos(0.5, 0.3), fontsize=80, sensitive=False)
             fadeOut(level_words, 2000)
-            self.level_label.text = 'Level %d' % (self.difficulty + 1)
+            self.level_label.text = 'Level %d' % self.level
 
     def quit(self):
         self.start_game()
