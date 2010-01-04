@@ -460,9 +460,7 @@ class Level:
 
         self.section_nodes = []
         self.sections = []
-        fillopacities = [0, 0.1]
         s = 0
-        f = 0
 
         for r in reversed(range(STARTING_ZONE_NROWS, self.board.nrows)):
             nsections = section_pattern[s]
@@ -486,7 +484,6 @@ class Level:
                     sensitive=False))
 
                 section_min = section_max
-                f = 1 - f
 
     def destroy(self):
         self.pause()
@@ -698,8 +695,9 @@ class Multitet(AVGApp):
                 text='Level %d' % (self.difficulty + 1),
                 alignment='center',
                 pos=self.size/2,
-                fontsize=80)
-            fadeOut(level_words, 1000)
+                fontsize=80,
+                sensitive=False)
+            fadeOut(level_words, 2000)
 
     def quit(self):
         self.start_level()
