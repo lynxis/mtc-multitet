@@ -641,7 +641,7 @@ class Multitet(AVGApp):
     def end_game(self):
         self.game.pause()
         self.pause_button.delete()
-        self.level_label.delete()
+        self.level_label.unlink()
         self.game_over_node.unlink()
         self._parentNode.appendChild(self.game_over_node)
 
