@@ -18,12 +18,37 @@
 from libavg import avg, Point2D, AVGApp, AVGNode, fadeOut
 from libavg.AVGAppUtil import getMediaDir
 from buttons import LabelButton
+from grid import Grid
 import math, random
 
-STARTING_ZONE_NROWS = 1
+STARTING_ZONE_NROWS = 1  # size of the starting zone, in rows
+
 MANIPULATOR_RADIUS = 1.8  # radius of the circular manipulator, in block units
 
 TICKS_PER_LEVEL = 60
+
+def make_cells(str):
+    return [[ch != '-' and ch or None for ch in row] for row in str.split()]
+
+SHAPE_GRIDS = [
+# Crazy pieces!
+#   Grid(5, 5, make_cells('----- -LLL- -L--- -L--- -----')),
+#   Grid(5, 5, make_cells('----- --SSS --SS- ----- -----')),
+#   Grid(5, 5, make_cells('----- -TTT- --T-- --T-- -----')),
+#   Grid(5, 5, make_cells('----- --ZZ- -ZZZ- ----- -----')),
+#   Grid(5, 5, make_cells('----- -IIII --I-- ----- -----')),
+#   Grid(5, 5, make_cells('----- IIII- --I-- ----- -----')),
+#   Grid(5, 5, make_cells('----- -XXX- -XX-- ----- -----')),
+#   Grid(5, 5, make_cells('----- -XX-- -XXX- ----- -----')),
+
+    Grid(4, 4, make_cells('---- -FF- -F-- -F--')),  # F-shape
+    Grid(4, 4, make_cells('-L-- -L-- -LL- ----')),  # L-shape
+    Grid(4, 4, make_cells('--I- --I- --I- --I-')),  # I-shape
+    Grid(3, 3, make_cells('-SS SS- ---')),  # S-shape
+    Grid(3, 3, make_cells('ZZ- -ZZ ---')),  # Z-shape
+    Grid(3, 3, make_cells('--- TTT -T-')),  # T-shape
+    Grid(2, 2, make_cells('XX XX')),  # X-shape
+]
 
 LEVELS = [
     # scale, section_pattern, tick_interval, ticks_per_drop, pieces_per_drop
@@ -42,8 +67,6 @@ LEVELS = [
     (40, [2], 1000, 2, 1),
     (40, [2], 800, 2, 1),
 ]
-
-# See below the Grid class for the definitions of piece shapes.
 
 def set_handler(node, type, handler):
     node.setEventHandler(type, avg.MOUSE | avg.TOUCH, handler)
@@ -113,141 +136,6 @@ def transitive_closure(marked_nodes, edges):
             marked_nodes = marked_nodes.union(edges[node])
         marked_nodes -= closure
     return closure
-
-class Grid:
-    """A fixed-size rectangular array of cells, where a false value represents
-    the absence of a block and anything else represents a block.  Clients of
-    this class may use characters or object references to represent blocks."""
-
-    def __init__(self, ncolumns, nrows, cells=None):
-        self.ncolumns = ncolumns
-        self.nrows = nrows
-        if cells is None:
-            self.clear()
-        else:
-            self.cells = [list(row) for row in cells]
-        assert len(self.cells) == self.nrows
-        for row in self.cells:
-            assert len(row) == self.ncolumns
-
-    def dump(self, name):
-        for row in self.cells:
-            line = name + ': '
-            for cell in row:
-                if isinstance(cell, Piece):
-                    ch = 'P'
-                elif isinstance(cell, AVGNode):
-                    ch = 'N'
-                elif cell is None:
-                    ch = '-'
-                else:
-                    ch = str(cell)[0]
-                line += ch
-            print line
-
-    def clear(self):
-        self.cells = [[None]*self.ncolumns for r in range(self.nrows)]
-
-    def get(self, (c, r)):
-        """Get the value of the cell in column c of row r."""
-        return self.cells[r][c]
-
-    def in_bounds(self, (c, r)):
-        """Return True if the given position is in bounds for this Grid."""
-        return 0 <= c < self.ncolumns and 0 <= r < self.nrows
-
-    def put(self, (c, r), value):
-        """Get the value of the cell in column c of row r."""
-        self.cells[r][c] = value
-
-    def put_all(self, grid, (c, r), override_value=None):
-        """Write the blocks in the given Grid into this Grid, placing the NW
-        corner of the given Grid at (c, r) in this Grid.  If 'override_value'
-        is specified, write it instead of the values in the given Grid."""
-        for (cc, rr), value in grid.get_blocks():
-            self.cells[r + rr][c + cc] = override_value or value
-
-    def remove_value(self, value):
-        """Remove all blocks with the given value from this Grid."""
-        for r in range(self.nrows):
-            for c in range(self.ncolumns):
-                if self.cells[r][c] == value:
-                    self.cells[r][c] = None
-
-    def overlaps_any(self, grid, (c, r), ignore_value=None):
-        """Return True if this Grid overlaps any blocks in the given Grid, when
-        placed with its NW corner at (c, r) in this Grid.  If 'ignore_value'
-        is specified, blocks in this Grid with this value are ignored."""
-        for (cc, rr), value in grid.get_blocks():
-            value = self.cells[r + rr][c + cc]
-            if value and value != ignore_value:
-                return True
-
-    def overlaps_all(self, grid, (c, r)):
-        """Return True if this Grid overlaps all blocks in the given Grid, when
-        placed with its NW corner at (c, r) in this Grid."""
-        for (cc, rr), value in grid.get_blocks():
-            if not self.cells[r + rr][c + cc]:
-                return False
-        return True
-
-    def all_in_bounds(self, grid, (c, r)):
-        """Return True if all blocks of the given Grid are in bounds when the
-        NW corner of the given Grid is placed at (c, r) in this Grid."""
-        for (cc, rr), value in grid.get_blocks():
-            if not self.in_bounds((c + cc, r + rr)):
-                return False
-        return True
-
-    def get_blocks(self):
-        """Generate (cr, value) pairs for all the blocks in this grid."""
-        for r in range(self.nrows):
-            for c in range(self.ncolumns):
-                if self.cells[r][c] is not None:
-                    yield (c, r), self.cells[r][c]
-
-    def get_rotated(self, cw_quarter_turns):
-        """Create a new Grid object that contains a copy of this Grid, rotated
-        clockwise by the given number of quarter turns."""
-        turns = cw_quarter_turns % 4
-        if turns == 0:
-            return Grid(self.ncolumns, self.nrows, self.cells)
-        if turns == 2:
-            rotated_cells = [reversed(row) for row in reversed(self.cells)]
-            return Grid(self.ncolumns, self.nrows, rotated_cells)
-        if turns == 1:
-            rotated_cells = [
-                [self.cells[r][c] for r in reversed(range(self.nrows))]
-                for c in range(self.ncolumns)]
-            return Grid(self.nrows, self.ncolumns, rotated_cells)
-        if turns == 3:
-            rotated_cells = [
-                [self.cells[r][c] for r in range(self.nrows)]
-                for c in reversed(range(self.ncolumns))]
-            return Grid(self.nrows, self.ncolumns, rotated_cells)
-
-def make_cells(str):
-    return [[ch != '-' and ch or None for ch in row] for row in str.split()]
-
-SHAPE_GRIDS = [
-# Crazy pieces!
-#   Grid(5, 5, make_cells('----- -LLL- -L--- -L--- -----')),
-#   Grid(5, 5, make_cells('----- --SSS --SS- ----- -----')),
-#   Grid(5, 5, make_cells('----- -TTT- --T-- --T-- -----')),
-#   Grid(5, 5, make_cells('----- --ZZ- -ZZZ- ----- -----')),
-#   Grid(5, 5, make_cells('----- -IIII --I-- ----- -----')),
-#   Grid(5, 5, make_cells('----- IIII- --I-- ----- -----')),
-#   Grid(5, 5, make_cells('----- -XXX- -XX-- ----- -----')),
-#   Grid(5, 5, make_cells('----- -XX-- -XXX- ----- -----')),
-
-    Grid(4, 4, make_cells('---- -FF- -F-- -F--')),  # F-shape
-    Grid(4, 4, make_cells('-L-- -L-- -LL- ----')),  # L-shape
-    Grid(4, 4, make_cells('--I- --I- --I- --I-')),  # I-shape
-    Grid(3, 3, make_cells('-SS SS- ---')),  # S-shape
-    Grid(3, 3, make_cells('ZZ- -ZZ ---')),  # Z-shape
-    Grid(3, 3, make_cells('--- TTT -T-')),  # T-shape
-    Grid(2, 2, make_cells('XX XX')),  # X-shape
-]
 
 class Piece:
     """A falling game piece.  This class maintains a Grid for the shape of
