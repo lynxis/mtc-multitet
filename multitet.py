@@ -47,7 +47,7 @@ def lower_node(node):
 def create_button(parent_node, callback, **props):
     button = LabelButton(
         parent_node, props.get('pos', Point2D(0, 0)),
-        props.get('text', 'Button'), props.get('fontsize', 20), callback)
+        props.get('text', 'Button'), props.get('fontsize', 16), callback)
     for key in props:
         setattr(button._node, key, props[key])
     return button
@@ -227,24 +227,24 @@ PIECE_GRIDS = [
 STARTING_ZONE_NROWS = 1
 MANIPULATOR_RADIUS = 1.8  # radius of the circular manipulator, in block units
 
-TICKS_PER_LEVEL = 60
+TICKS_PER_LEVEL = 10
 
 LEVELS = [
-    # scale, section_pattern, tick_interval, ticks_per_piece
-    (40, [4], 1500, 3),
-    (40, [4], 1200, 3),
-    (40, [4], 1200, 2),
-    (40, [4], 900, 2),
-    (40, [3], 1500, 3),
-    (40, [3], 1200, 3),
-    (40, [3], 900, 3),
-    (40, [3], 1200, 2),
-    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1200, 2),
-    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1000, 2),
-    (40, [3], 1000, 2),
-    (40, [3], 800, 2),
-    (40, [2], 1000, 2),
-    (40, [2], 800, 2),
+    # scale, section_pattern, tick_interval, ticks_per_drop, pieces_per_drop
+    (40, [4], 1500, 3, 1),
+    (40, [4], 1200, 5, 4),
+    (40, [4], 1200, 2, 1),
+    (40, [4], 900, 2, 1),
+    (40, [3], 1500, 3, 1),
+    (40, [3], 1200, 3, 1),
+    (40, [3], 900, 3, 1),
+    (40, [3], 1200, 2, 1),
+    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1200, 2, 1),
+    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1000, 2, 1),
+    (40, [3], 1000, 2, 1),
+    (40, [3], 800, 2, 1),
+    (40, [2], 1000, 2, 1),
+    (40, [2], 800, 2, 1),
 ]
 
 class Piece:
@@ -477,16 +477,16 @@ class Board:
             if node:
                 node.href = 'dissolving.png'
 
-class Level:
-    """The controller for one round of the game.  This class holds the Board
-    and the list of Pieces, and causes the Pieces to fall with each clock tick.
-    When the fall of a Piece is stopped by blocks below, the Piece "freezes":
-    the blocks of the Piece are copied onto the board and the Piece object is
-    destroyed.  Pieces appear in a "starting zone" at the top where they cannot
-    be manipulated; if a piece freezes in the starting zone, the round ends."""
+class Game:
+    """The main game controller.  This class holds the Board and the list of
+    Pieces, and causes the Pieces to fall with each clock tick.  When the fall
+    of a Piece is stopped by blocks below, the Piece "freezes": the blocks of
+    the Piece are copied onto the board and the Piece object is destroyed.
+    Pieces appear in a "starting zone" at the top where they cannot be
+    manipulated; if a piece freezes in the starting zone, the game ends."""
 
-    def __init__(self, parent_node, app, scale,
-                 section_pattern, tick_interval, ticks_per_piece):
+    def __init__(self, parent_node, app, scale, section_pattern,
+                 tick_interval, ticks_per_drop, pieces_per_drop):
         self.width, self.height = parent_node.size.x, parent_node.size.y
         self.app = app
 
@@ -506,17 +506,20 @@ class Level:
         set_handler(self.starting_zone_node, avg.CURSORDOWN, self.handle_down)
         self.can_add_pieces = True  # For debouncing taps on the starting zone.
         
-        # Set the initial board scale.
-        self.set_scale(scale)
-
         self.pieces = []
         self.interval_id = None
-        self.tick_interval = tick_interval
-        self.ticks_per_piece = ticks_per_piece
-        self.ticks_to_next_piece = 1
-
+        self.ticks_to_next_drop = 1
         self.section_nodes = None
+        self.set_difficulty(scale, section_pattern, tick_interval,
+                            ticks_per_drop, pieces_per_drop)
+
+    def set_difficulty(self, scale, section_pattern,
+                       tick_interval, ticks_per_drop, pieces_per_drop):
+        self.set_scale(scale)
         self.set_section_pattern(section_pattern)
+        self.tick_interval = tick_interval
+        self.ticks_per_drop = ticks_per_drop
+        self.pieces_per_drop = pieces_per_drop
 
     def set_scale(self, scale):
         # Resize the game board.
@@ -611,16 +614,17 @@ class Level:
         self.mark_dissolving()
         if (not list(self.dissolving.get_blocks()) and
             self.board.frozen_grid.overlaps_any(self.starting_zone, (0, 0))):
-            self.app.end_level()
+            self.app.end_game()
             return
 
-        self.ticks_to_next_piece -= 1
-        if (self.ticks_to_next_piece <= 0 or
+        self.ticks_to_next_drop -= 1
+        if (self.ticks_to_next_drop <= 0 or
             not list(self.board.piece_grid.get_blocks())):
-            self.ticks_to_next_piece = self.ticks_per_piece
-            if not self.add_piece():
-                self.app.end_level()
-                return
+            self.ticks_to_next_drop = self.ticks_per_drop
+            for p in range(self.pieces_per_drop):
+                if not self.add_piece():
+                    self.app.end_game()
+                    return
 
         self.app.tick()
 
@@ -700,7 +704,7 @@ class Multitet(AVGApp):
     def init(self):
         self._parentNode.mediadir = getMediaDir(__file__)
 
-        self.level = None
+        self.game = None
         self.size = self._parentNode.size
         width = self.size.x
         height = self.size.y
@@ -715,35 +719,38 @@ class Multitet(AVGApp):
         create_node(self.game_over_node, 'words', text='Game over',
             pos=Point2D(width*0.5, height*0.35),
             fontsize=80, alignment='center')
-        create_button(self.game_over_node, self.start_level, text='Play again',
+        create_button(self.game_over_node, self.start_game, text='Play again',
             fontsize=40, alignment='left', pos=Point2D(width*0.3, height*0.65))
         create_button(self.game_over_node, self.quit, text='Exit',
             fontsize=40, alignment='right', pos=Point2D(width*0.7, height*0.65))
 
-        self.start_level()
+        self.start_game()
 
     def _enter(self):
-        if not self.level:
-            self.start_level()
-        self.level.run()
+        if not self.game:
+            self.start_game()
+        self.game.run()
 
     def _leave(self):
-        self.level.pause()
+        self.game.pause()
 
-    def start_level(self):
-        if self.level:
-            self.level.destroy()
-            self.level = None
+    def start_game(self):
+        if self.game:
+            self.game.destroy()
+            self.game = None
         self.game_over_node.unlink()
-        self.level = Level(self.level_node, self, *LEVELS[0])
+        self.game = Game(self.level_node, self, *LEVELS[0])
         self.difficulty = 0
         self.ticks = 0
         self.pause_button = create_button(
-            self._parentNode, self.leave, pos=Point2D(10, 10), text='PAUSE')
-        self.level.run()
+            self._parentNode, self.leave, pos=Point2D(20, 4), text='Pause')
+        self.level_label = create_node(
+            self._parentNode, 'words', pos=Point2D(self.size.x - 20, 4),
+            text='Level 1', alignment='right')
+        self.game.run()
 
-    def end_level(self):
-        self.level.pause()
+    def end_game(self):
+        self.game.pause()
         self.pause_button.delete()
         self.game_over_node.unlink()
         self._parentNode.appendChild(self.game_over_node)
@@ -755,22 +762,18 @@ class Multitet(AVGApp):
             self.ticks = 0
             if self.difficulty >= len(LEVELS):
                 self.difficulty = len(LEVELS) - 1
-            scale, section_pattern, tick_interval, ticks_per_piece = \
-                LEVELS[self.difficulty]
-            self.level.set_scale(scale)
-            self.level.set_section_pattern(section_pattern)
-            self.level.tick_interval = tick_interval
-            self.level.ticks_per_piece = ticks_per_piece
-            self.level.pause()
-            self.level.run()
+            self.game.set_difficulty(*LEVELS[self.difficulty])
+            self.game.pause()
+            self.game.run()
 
             level_words = create_node(self.level_node, 'words',
                 text='Level %d' % (self.difficulty + 1), alignment='center',
                 pos=self.size/2, fontsize=80, sensitive=False)
             fadeOut(level_words, 2000)
+            self.level_label.text = 'Level %d' % (self.difficulty + 1)
 
     def quit(self):
-        self.start_level()
+        self.start_game()
         self.leave()
 
 if __name__ == '__main__':
