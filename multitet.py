@@ -373,6 +373,7 @@ class Board:
         self.ncolumns = ncolumns
         self.nrows = nrows
         self.pos = pos
+        self.size = Point2D(ncolumns*scale, nrows*scale)
         self.scale = float(scale)
         self.block_size = Point2D(self.scale, self.scale)
         self.piece_grid = Grid(ncolumns, nrows)  # contains Piece references
@@ -455,6 +456,9 @@ class Level:
         self.board = Board(self.node,
                            int(self.width/scale), int(self.height/scale),
                            Point2D(0, self.height % scale), scale)
+        self.board_rect = create_node(self.node, 'rect',
+            pos=self.board.pos, size=self.board.size,
+            color='a0a0a0', strokewidth=4, sensitive=False)
 
         self.app = app
         self.interval_id = None
@@ -529,6 +533,7 @@ class Level:
             node.unlink()
         self.board.destroy()
         self.node.unlink()
+        self.board_rect.unlink()
         self.section_node.unlink()
         self.starting_zone_node.unlink()
 
@@ -663,8 +668,6 @@ class Multitet(AVGApp):
             size=self.size, fillcolor='000000', fillopacity=1)
         self.level_node = create_node(self._parentNode, 'div',
             pos=Point2D(20, 20), size=Point2D(width - 40, height - 40))
-        self.level_rect = create_node(self.level_node, 'rect',
-            size=self.level_node.size, color='a0a0a0', strokewidth=4)
         self.game_over_node = create_node(self._parentNode, 'div')
         create_node(self.game_over_node, 'rect', pos=self.size*0.25,
             size=self.size*0.5, fillcolor='000000', fillopacity=0.7)
