@@ -227,6 +227,26 @@ PIECE_GRIDS = [
 STARTING_ZONE_NROWS = 1
 MANIPULATOR_RADIUS = 1.8  # radius of the circular manipulator, in block units
 
+TICKS_PER_LEVEL = 60
+
+LEVELS = [
+    # scale, section_pattern, tick_interval, ticks_per_piece
+    (40, [4], 1500, 3),
+    (40, [4], 1200, 3),
+    (40, [4], 1200, 2),
+    (40, [4], 900, 2),
+    (40, [3], 1500, 3),
+    (40, [3], 1200, 3),
+    (40, [3], 900, 3),
+    (40, [3], 1200, 2),
+    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1200, 2),
+    (40, [3, 3, 3, 3, 4, 4, 4, 4], 1000, 2),
+    (40, [3], 1000, 2),
+    (40, [3], 800, 2),
+    (40, [2], 1000, 2),
+    (40, [2], 800, 2),
+]
+
 class Piece:
     """A falling game piece.  This class maintains a Grid for the shape of
     the piece and Nodes that display the piece, and handles player events
@@ -370,14 +390,31 @@ class Board:
 
     def __init__(self, parent_node, ncolumns, nrows, pos, scale):
         self.parent_node = parent_node
+        self.piece_grid = None  # set_size will set these
+        self.frozen_grid = None
+        self.set_size(ncolumns, nrows, pos, scale)
+
+    def set_size(self, ncolumns, nrows, pos, scale):
         self.ncolumns = ncolumns
         self.nrows = nrows
         self.pos = pos
-        self.size = Point2D(ncolumns*scale, nrows*scale)
         self.scale = float(scale)
+        self.size = Point2D(ncolumns, nrows)*self.scale
         self.block_size = Point2D(self.scale, self.scale)
+        old_piece_grid, old_frozen_grid = self.piece_grid, self.frozen_grid
         self.piece_grid = Grid(ncolumns, nrows)  # contains Piece references
         self.frozen_grid = Grid(ncolumns, nrows)  # contains Node references
+        if old_piece_grid:
+            # Copy the old grids, anchoring the bottom-left corner.
+            nw_corner = (0, nrows - old_piece_grid.nrows)
+            self.piece_grid.put_all(old_piece_grid, nw_corner)
+            self.frozen_grid.put_all(old_frozen_grid, nw_corner)
+            for cr, value in self.piece_grid.get_blocks():
+                value.update_blocks()
+                value.update_manip()
+            for cr, value in self.frozen_grid.get_blocks():
+                value.pos = self.get_nw_point(cr)
+                value.size = self.block_size
 
     def destroy(self):
         for cr, value in self.frozen_grid.get_blocks():
@@ -448,40 +485,60 @@ class Level:
     destroyed.  Pieces appear in a "starting zone" at the top where they cannot
     be manipulated; if a piece freezes in the starting zone, the round ends."""
 
-    def __init__(self, parent_node, scale, app,
+    def __init__(self, parent_node, app, scale,
                  section_pattern, tick_interval, ticks_per_piece):
         self.width, self.height = parent_node.size.x, parent_node.size.y
+        self.app = app
+
         self.node = create_node(parent_node, 'div')
         self.section_node = create_node(self.node, 'div', sensitive=False)
-        self.board = Board(self.node,
-                           int(self.width/scale), int(self.height/scale),
-                           Point2D(0, self.height % scale), scale)
-        self.board_rect = create_node(self.node, 'rect',
-            pos=self.board.pos, size=self.board.size,
-            color='a0a0a0', strokewidth=4, sensitive=False)
 
-        self.app = app
+        # Create a dummy game board; it will be resized in self.set_scale().
+        self.board = Board(self.node, 1, 1, Point2D(0, 0), scale)
+        self.board_rect = create_node(self.node, 'rect',
+            color='a0a0a0', strokewidth=4, sensitive=False)
+        self.dissolving = None
+
+        # The starting zone can be touched to request more pieces.
+        self.starting_zone = None
+        self.starting_zone_node = create_node(parent_node, 'rect',
+            opacity=0, fillcolor='ff0000', fillopacity=0.2)
+        set_handler(self.starting_zone_node, avg.CURSORDOWN, self.handle_down)
+        self.can_add_pieces = True  # For debouncing taps on the starting zone.
+        
+        # Set the initial board scale.
+        self.set_scale(scale)
+
+        self.pieces = []
         self.interval_id = None
         self.tick_interval = tick_interval
         self.ticks_per_piece = ticks_per_piece
         self.ticks_to_next_piece = 1
 
-        self.pieces = []
-        self.dissolving = Grid(self.board.ncolumns, self.board.nrows)
-
-        row_cells = 'X'*self.board.ncolumns
-        self.starting_zone = Grid(self.board.ncolumns, STARTING_ZONE_NROWS,
-            [row_cells]*STARTING_ZONE_NROWS)
-
-        self.section_nodes = []
+        self.section_nodes = None
         self.set_section_pattern(section_pattern)
 
-        # The starting zone can be touched to request more pieces.
-        self.starting_zone_node = create_node(parent_node, 'rect',
-            size=Point2D(self.board.ncolumns, STARTING_ZONE_NROWS)*scale,
-            pos=self.board.pos, opacity=0, fillcolor='ff0000', fillopacity=0.2)
-        set_handler(self.starting_zone_node, avg.CURSORDOWN, self.handle_down)
-        self.can_add_pieces = True  # For debouncing taps on the starting zone.
+    def set_scale(self, scale):
+        # Resize the game board.
+        self.board.set_size(int(self.width/scale), int(self.height/scale),
+            Point2D(0, self.height % scale), scale)
+        self.board_rect.pos = self.board.pos
+        self.board_rect.size = self.board.size
+
+        # Resize the map of dissolving blocks.
+        old_dissolving = self.dissolving
+        self.dissolving = Grid(self.board.ncolumns, self.board.nrows)
+        if old_dissolving:
+            # Copy the old grid, anchoring the bottom-left corner.
+            nw_corner = (0, self.board.nrows - old_dissolving.nrows)
+            self.dissolving.put_all(old_dissolving, nw_corner)
+
+        # Set up the starting zone.
+        self.starting_zone = Grid(self.board.ncolumns, STARTING_ZONE_NROWS,
+            ['X'*self.board.ncolumns]*STARTING_ZONE_NROWS)
+        self.starting_zone_node.pos = self.board.pos
+        self.starting_zone_node.size = \
+            Point2D(self.board.ncolumns, STARTING_ZONE_NROWS)*scale
 
     def handle_down(self, event):
         if self.can_add_pieces:
@@ -495,8 +552,9 @@ class Level:
         self.can_add_pieces = True
 
     def set_section_pattern(self, section_pattern):
-        for node in self.section_nodes:
-            node.unlink()
+        if self.section_nodes:
+            for node in self.section_nodes:
+                node.unlink()
 
         self.section_nodes = []
         self.sections = []
@@ -636,23 +694,6 @@ class Level:
                 return True
         return False  # couldn't find a location after 10 tries
 
-LEVELS = [
-    ([4], 1500, 3),
-    ([4], 1200, 3),
-    ([4], 1200, 2),
-    ([4], 900, 2),
-    ([3], 1500, 3),
-    ([3], 1200, 3),
-    ([3], 900, 3),
-    ([3], 1200, 2),
-    ([3, 3, 3, 3, 4, 4, 4, 4], 1200, 2),
-    ([3, 3, 3, 3, 4, 4, 4, 4], 1000, 2),
-    ([3], 1000, 2),
-    ([3], 800, 2),
-    ([2], 1000, 2),
-    ([2], 800, 2),
-]
-
 class Multitet(AVGApp):
     multitouch = True
 
@@ -694,28 +735,29 @@ class Multitet(AVGApp):
             self.level.destroy()
             self.level = None
         self.game_over_node.unlink()
-        self.level = Level(self.level_node, 40, self, *LEVELS[0])
+        self.level = Level(self.level_node, self, *LEVELS[0])
         self.difficulty = 0
         self.ticks = 0
-        self.exit_button = create_button(self._parentNode, self.leave,
-            pos=Point2D(self.size.x/2, 10), text='EXIT', alignment='center')
+        self.pause_button = create_button(
+            self._parentNode, self.leave, pos=Point2D(10, 10), text='PAUSE')
         self.level.run()
 
     def end_level(self):
         self.level.pause()
-        self.exit_button.delete()
+        self.pause_button.delete()
         self.game_over_node.unlink()
         self._parentNode.appendChild(self.game_over_node)
 
     def tick(self):
         self.ticks += 1
-        if self.ticks > 40:
+        if self.ticks == TICKS_PER_LEVEL:
             self.difficulty += 1
             self.ticks = 0
             if self.difficulty >= len(LEVELS):
                 self.difficulty = len(LEVELS) - 1
-            section_pattern, tick_interval, ticks_per_piece = \
+            scale, section_pattern, tick_interval, ticks_per_piece = \
                 LEVELS[self.difficulty]
+            self.level.set_scale(scale)
             self.level.set_section_pattern(section_pattern)
             self.level.tick_interval = tick_interval
             self.level.ticks_per_piece = ticks_per_piece
