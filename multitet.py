@@ -25,7 +25,7 @@ STARTING_ZONE_NROWS = 1  # size of the starting zone, in rows
 
 MANIPULATOR_RADIUS = 70  # radius of the circular manipulator, in pixels
 
-TICKS_PER_LEVEL = 40
+TICKS_PER_LEVEL = 35
 
 def make_cells(str):
     return [[ch != '-' and ch or None for ch in row] for row in str.split()]
@@ -90,31 +90,31 @@ LEVELS = [
     (34, [4], 1500, 3, 1, NORMAL_SHAPES),
     (34, [4], 1200, 4, 2, NORMAL_SHAPES),
     (34, [4], 1200, 6, 4, NORMAL_SHAPES),
-    (34, [3], 1500, 4, 2, NORMAL_SHAPES),
+    (34, [3], 1200, 4, 2, NORMAL_SHAPES),
     (34, [3], 1000, 6, 4, NORMAL_SHAPES),
 
     # Introduce some new shapes.
     (34, [4], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES*2),
     (34, [4], 1200, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES*2),
-    (34, [4], 1200, 6, 3, NORMAL_SHAPES*3 + BIG_SHAPES*2),
+    (34, [4], 1000, 6, 3, NORMAL_SHAPES*3 + BIG_SHAPES*2),
     # Scale up again!  Take one level to recover.
     (30, [4], 1500, 2, 1, NORMAL_SHAPES),
     (30, [4], 1200, 6, 4, NORMAL_SHAPES), # Crazy again!
 
     # A higher proportion of big shapes.
-    (30, [4], 1500, 3, 1, NORMAL_SHAPES + BIG_SHAPES),
+    (30, [4], 1500, 2, 1, NORMAL_SHAPES + BIG_SHAPES),
     (30, [4], 1200, 2, 1, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES),
     # More new shapes!  Add some easy ones to make up for the hard ones.
-    (30, [4], 1200, 6, 3, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
+    (30, [4], 1200, 6, 4, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           EASY_SHAPES*6),
-    (30, [4], 1200, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+    (30, [4], 1200, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
-    (30, [4], 1500, 6, 3, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+    (30, [4], 1200, 6, 4, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*12 + TINY_SHAPES*12),
 
     # Lightning round!  Fast, but easier.
     (30, [4], 1000, 3, 1, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
-    (30, [4], 1200, 6, 5, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
+    (30, [4], 1200, 6, 6, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
     (30, [4], 800, 6, 5, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
     # Scale up again.  No easy shapes.
     (26, [4], 1500, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
@@ -123,14 +123,14 @@ LEVELS = [
                           AWFUL_SHAPES),
 
     # Go nuts with the horrible shapes!
-    (26, [4], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [4], 1500, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
-    (26, [4], 1200, 2, 1, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [4], 1000, 2, 1, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
     (26, [4], 1200, 6, 4, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
 
-    (26, [3], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [3], 1500, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
     (26, [3], 1200, 6, 4, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
@@ -728,6 +728,7 @@ class Multitet(AVGApp):
             fontsize=40, alignment='left', pos=self.get_pos(0.3, 0.65))
         create_button(self.game_over_node, self.quit, text='Exit',
             fontsize=40, alignment='right', pos=self.get_pos(0.7, 0.65))
+        set_handler(self._parentNode, avg.KEYDOWN, self.handle_key)
 
         self.start_game()
 
@@ -758,8 +759,8 @@ class Multitet(AVGApp):
         self._parentNode.appendChild(self.game_over_node)
 
     def set_level(self, level):
-        self.level = level
-        self.game.set_difficulty(*LEVELS[self.level - 1])
+        self.level = min(level, len(LEVELS))
+        self.game.set_difficulty(*LEVELS[self.level - 1])  # level is 1-based
         self.game.pause()
         self.game.run()
 
@@ -769,10 +770,14 @@ class Multitet(AVGApp):
         fadeOut(level_words, 2000)
         self.level_label.text = 'Level %d' % self.level
 
+    def handle_key(self, event):
+        if event.keystring == 'l':
+            self.set_level(self.level + 1)
+
     def tick(self):
         self.ticks_to_next_level -= 1
         if self.ticks_to_next_level <= 0:
-            self.set_level(min(self.level + 1, len(LEVELS)))
+            self.set_level(self.level + 1)
             self.ticks_to_next_level = TICKS_PER_LEVEL
 
     def quit(self):
