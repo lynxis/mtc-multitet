@@ -73,7 +73,7 @@ EASY_SHAPES = [
 ]
 
 TINY_SHAPES = [
-    Grid(2, 2, make_cells('II')),
+    Grid(2, 2, make_cells('II --')),
     Grid(1, 1, make_cells('X')),
 ]
 
