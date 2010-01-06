@@ -21,11 +21,13 @@ from buttons import LabelButton
 from grid import Grid
 import math, random
 
+RESOLUTION = (1280, 720)
+
 STARTING_ZONE_NROWS = 1  # size of the starting zone, in rows
 
 MANIPULATOR_RADIUS = 70  # radius of the circular manipulator, in pixels
 
-TICKS_PER_LEVEL = 35
+TICKS_PER_LEVEL = 40
 
 def make_cells(str):
     return [[ch != '-' and ch or None for ch in row] for row in str.split()]
@@ -100,10 +102,10 @@ LEVELS = [
     (34, [4], 1000, 6, 3, NORMAL_SHAPES*3 + BIG_SHAPES*2),
     # Scale up again!  Take one level to recover.
     (30, [4], 1500, 3, 2, NORMAL_SHAPES),
-    (30, [4], 1200, 6, 4, NORMAL_SHAPES), # Crazy again!
+    (30, [4], 1200, 6, 5, NORMAL_SHAPES), # Crazy again!
 
     # A higher proportion of big shapes.
-    (30, [4], 1500, 3, 2, NORMAL_SHAPES + BIG_SHAPES),
+    (30, [4], 1500, 3, 2, NORMAL_SHAPES*2 + BIG_SHAPES*3),
     (30, [4], 1200, 3, 2, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES),
     # More new shapes!  Add some easy ones to make up for the hard ones.
     (30, [4], 1200, 6, 4, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
@@ -784,4 +786,4 @@ class Multitet(AVGApp):
         self.leave()
 
 if __name__ == '__main__':
-    Multitet.start(resolution=(1280, 720))
+    Multitet.start(resolution=RESOLUTION)
