@@ -73,6 +73,7 @@ EASY_SHAPES = [
 ]
 
 TINY_SHAPES = [
+    Grid(2, 2, make_cells('II')),
     Grid(1, 1, make_cells('X')),
 ]
 
@@ -83,27 +84,27 @@ LEVELS = [
     (40, [4], 1500, 3, 1, NORMAL_SHAPES),  # Normal
     (40, [4], 1200, 2, 1, NORMAL_SHAPES),  # Faster
     (40, [4], 1200, 6, 3, NORMAL_SHAPES),  # Crazy round!
-    (40, [3], 1500, 2, 1, NORMAL_SHAPES),  # Back to normal...
-    (40, [3], 1200, 6, 3, NORMAL_SHAPES),
+    (40, [3], 1200, 2, 1, NORMAL_SHAPES),  # Back to normal...
+    (40, [3], 1000, 6, 3, NORMAL_SHAPES),
 
     # Scale up the board!
-    (34, [4], 1500, 3, 1, NORMAL_SHAPES),
-    (34, [4], 1200, 4, 2, NORMAL_SHAPES),
+    (34, [4], 1200, 2, 1, NORMAL_SHAPES),
+    (34, [4], 1000, 4, 2, NORMAL_SHAPES),
     (34, [4], 1200, 6, 4, NORMAL_SHAPES),
     (34, [3], 1200, 4, 2, NORMAL_SHAPES),
     (34, [3], 1000, 6, 4, NORMAL_SHAPES),
 
     # Introduce some new shapes.
-    (34, [4], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES*2),
-    (34, [4], 1200, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES*2),
+    (34, [4], 1400, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES*2),
+    (34, [4], 1200, 3, 2, NORMAL_SHAPES*3 + BIG_SHAPES*2),
     (34, [4], 1000, 6, 3, NORMAL_SHAPES*3 + BIG_SHAPES*2),
     # Scale up again!  Take one level to recover.
-    (30, [4], 1500, 2, 1, NORMAL_SHAPES),
+    (30, [4], 1500, 3, 2, NORMAL_SHAPES),
     (30, [4], 1200, 6, 4, NORMAL_SHAPES), # Crazy again!
 
     # A higher proportion of big shapes.
-    (30, [4], 1500, 2, 1, NORMAL_SHAPES + BIG_SHAPES),
-    (30, [4], 1200, 2, 1, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES),
+    (30, [4], 1500, 3, 2, NORMAL_SHAPES + BIG_SHAPES),
+    (30, [4], 1200, 3, 2, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES),
     # More new shapes!  Add some easy ones to make up for the hard ones.
     (30, [4], 1200, 6, 4, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           EASY_SHAPES*6),
@@ -115,24 +116,23 @@ LEVELS = [
     # Lightning round!  Fast, but easier.
     (30, [4], 800, 2, 1, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
     (30, [4], 1200, 6, 6, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
-    (30, [4], 800, 6, 5, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
+    (30, [4], 800, 6, 6, EASY_SHAPES*2 + TINY_SHAPES),
     # Scale up again.  No easy shapes.
-    (26, [4], 1400, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [4], 1400, 3, 2, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES),
-    (26, [4], 1200, 6, 3, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [4], 1200, 6, 5, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES),
 
     # Go nuts with the horrible shapes!
-    (26, [4], 1500, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [4], 1500, 3, 2, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
-    (26, [4], 1000, 2, 1, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [4], 1000, 3, 2, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
     (26, [4], 1200, 6, 4, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
-
-    (26, [3], 1500, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [4], 1200, 6, 6, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
-    (26, [3], 1200, 6, 4, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [4], 1000, 6, 6, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
 ]
 
