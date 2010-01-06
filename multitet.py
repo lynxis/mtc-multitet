@@ -23,7 +23,7 @@ import math, random
 
 STARTING_ZONE_NROWS = 1  # size of the starting zone, in rows
 
-MANIPULATOR_RADIUS = 1.8  # radius of the circular manipulator, in block units
+MANIPULATOR_RADIUS = 70  # radius of the circular manipulator, in pixels
 
 TICKS_PER_LEVEL = 40
 
@@ -238,8 +238,8 @@ class Piece:
         # Provide a circular manipulator to make the piece easier to grab.
         # The manipulator is initially behind all other nodes.
         self.manip_node = create_node(self.parent_node, 'circle',
-            r=self.board.scale*MANIPULATOR_RADIUS,
-            color='000000', opacity=0, fillcolor='ffffff', fillopacity=0)
+            r=MANIPULATOR_RADIUS, color='000000', opacity=0,
+            fillcolor='ffffff', fillopacity=0)
         set_handler(self.manip_node, avg.CURSORDOWN, self.handle_down)
         set_handler(self.manip_node, avg.CURSORMOTION, self.handle_motion)
         set_handler(self.manip_node, avg.CURSORUP, self.handle_up)
