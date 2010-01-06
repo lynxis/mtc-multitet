@@ -88,9 +88,9 @@ LEVELS = [
 
     # Scale up the board!
     (34, [4], 1500, 3, 1, NORMAL_SHAPES),
-    (34, [4], 1200, 3, 1, NORMAL_SHAPES),
+    (34, [4], 1200, 2, 1, NORMAL_SHAPES),
     (34, [4], 1200, 6, 4, NORMAL_SHAPES),
-    (34, [3], 1500, 3, 1, NORMAL_SHAPES),
+    (34, [3], 1500, 2, 1, NORMAL_SHAPES),
     (34, [3], 1200, 6, 4, NORMAL_SHAPES),
 
     # Introduce some new shapes.
@@ -98,7 +98,7 @@ LEVELS = [
     (34, [4], 1200, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES*2),
     (34, [4], 1200, 6, 3, NORMAL_SHAPES*3 + BIG_SHAPES*2),
     # Scale up again!  Take one level to recover.
-    (30, [4], 1500, 3, 1, NORMAL_SHAPES),
+    (30, [4], 1500, 2, 1, NORMAL_SHAPES),
     (30, [4], 1200, 6, 4, NORMAL_SHAPES), # Crazy again!
 
     # A higher proportion of big shapes.
@@ -125,7 +125,7 @@ LEVELS = [
     # Go nuts with the horrible shapes!
     (26, [4], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
-    (26, [4], 1200, 3, 1, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [4], 1200, 2, 1, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
     (26, [4], 1200, 6, 4, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
