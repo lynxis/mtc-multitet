@@ -774,6 +774,7 @@ class Multitet(AVGApp):
     def onKey(self, event):
         if event.keystring == 'l':
             self.set_level(self.level + 1)
+            self.ticks_to_next_level = TICKS_PER_LEVEL
 
     def tick(self):
         self.ticks_to_next_level -= 1
