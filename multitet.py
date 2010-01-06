@@ -81,7 +81,7 @@ TINY_SHAPES = [
 LEVELS = [
     # scale, sections, tick_interval, ticks_per_drop, pieces_per_drop, shapes
     (40, [4], 1500, 3, 1, NORMAL_SHAPES),  # Normal
-    (40, [4], 1200, 3, 1, NORMAL_SHAPES),  # Faster
+    (40, [4], 1200, 2, 1, NORMAL_SHAPES),  # Faster
     (40, [4], 1200, 6, 3, NORMAL_SHAPES),  # Crazy round!
     (40, [3], 1500, 2, 1, NORMAL_SHAPES),  # Back to normal...
     (40, [3], 1200, 6, 3, NORMAL_SHAPES),
@@ -107,17 +107,17 @@ LEVELS = [
     # More new shapes!  Add some easy ones to make up for the hard ones.
     (30, [4], 1200, 6, 4, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           EASY_SHAPES*6),
-    (30, [4], 1200, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+    (30, [4], 1200, 3, 2, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
     (30, [4], 1200, 6, 4, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*12 + TINY_SHAPES*12),
 
     # Lightning round!  Fast, but easier.
-    (30, [4], 1000, 3, 1, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
+    (30, [4], 800, 2, 1, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
     (30, [4], 1200, 6, 6, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
     (30, [4], 800, 6, 5, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
     # Scale up again.  No easy shapes.
-    (26, [4], 1500, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [4], 1400, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES),
     (26, [4], 1200, 6, 3, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES),
@@ -728,7 +728,6 @@ class Multitet(AVGApp):
             fontsize=40, alignment='left', pos=self.get_pos(0.3, 0.65))
         create_button(self.game_over_node, self.quit, text='Exit',
             fontsize=40, alignment='right', pos=self.get_pos(0.7, 0.65))
-        set_handler(self._parentNode, avg.KEYDOWN, self.handle_key)
 
         self.start_game()
 
@@ -770,7 +769,7 @@ class Multitet(AVGApp):
         fadeOut(level_words, 2000)
         self.level_label.text = 'Level %d' % self.level
 
-    def handle_key(self, event):
+    def onKey(self, event):
         if event.keystring == 'l':
             self.set_level(self.level + 1)
 
