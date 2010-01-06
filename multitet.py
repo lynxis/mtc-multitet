@@ -459,12 +459,15 @@ class Game:
             color='a0a0a0', strokewidth=4, sensitive=False)
         self.dissolving = None
 
-        # The starting zone can be touched to request more pieces.
         self.starting_zone = None
         self.starting_zone_node = create_node(parent_node, 'rect',
             opacity=0, fillcolor='ff0000', fillopacity=0.2)
-        set_handler(self.starting_zone_node, avg.CURSORDOWN, self.handle_down)
         self.can_add_pieces = True  # For debouncing taps on the starting zone.
+
+        # Normally, the starting zone can be touched to request more pieces;
+        # however, this feature is disabled because of an exhaust hose in the
+        # c-base multitouch table that causes extraneous touches along the top.
+        # set_handler(self.starting_zone_node, avg.CURSORDOWN, self.handle_down)
         
         self.pieces = []
         self.interval_id = None
