@@ -83,19 +83,19 @@ LEVELS = [
     (40, [4], 1500, 3, 1, NORMAL_SHAPES),  # Normal
     (40, [4], 1200, 3, 1, NORMAL_SHAPES),  # Faster
     (40, [4], 1200, 6, 3, NORMAL_SHAPES),  # Crazy round!
-    (40, [3], 1500, 3, 1, NORMAL_SHAPES),  # Back to normal...
+    (40, [3], 1500, 2, 1, NORMAL_SHAPES),  # Back to normal...
     (40, [3], 1200, 6, 3, NORMAL_SHAPES),
 
     # Scale up the board!
     (34, [4], 1500, 3, 1, NORMAL_SHAPES),
-    (34, [4], 1200, 2, 1, NORMAL_SHAPES),
+    (34, [4], 1200, 4, 2, NORMAL_SHAPES),
     (34, [4], 1200, 6, 4, NORMAL_SHAPES),
-    (34, [3], 1500, 2, 1, NORMAL_SHAPES),
-    (34, [3], 1200, 6, 4, NORMAL_SHAPES),
+    (34, [3], 1500, 4, 2, NORMAL_SHAPES),
+    (34, [3], 1000, 6, 4, NORMAL_SHAPES),
 
     # Introduce some new shapes.
     (34, [4], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES*2),
-    (34, [4], 1200, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES*2),
+    (34, [4], 1200, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES*2),
     (34, [4], 1200, 6, 3, NORMAL_SHAPES*3 + BIG_SHAPES*2),
     # Scale up again!  Take one level to recover.
     (30, [4], 1500, 2, 1, NORMAL_SHAPES),
@@ -103,11 +103,11 @@ LEVELS = [
 
     # A higher proportion of big shapes.
     (30, [4], 1500, 3, 1, NORMAL_SHAPES + BIG_SHAPES),
-    (30, [4], 1200, 3, 1, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES),
+    (30, [4], 1200, 2, 1, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES),
     # More new shapes!  Add some easy ones to make up for the hard ones.
     (30, [4], 1200, 6, 3, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           EASY_SHAPES*6),
-    (30, [4], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+    (30, [4], 1200, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*6),
     (30, [4], 1500, 6, 3, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES + EASY_SHAPES*12 + TINY_SHAPES*12),
@@ -117,7 +117,7 @@ LEVELS = [
     (30, [4], 1200, 6, 5, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
     (30, [4], 800, 6, 5, NORMAL_SHAPES + EASY_SHAPES*6 + TINY_SHAPES*3),
     # Scale up again.  No easy shapes.
-    (26, [4], 1500, 3, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
+    (26, [4], 1500, 2, 1, NORMAL_SHAPES*3 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES),
     (26, [4], 1200, 6, 3, NORMAL_SHAPES*2 + BIG_SHAPES + TOUGH_SHAPES +
                           AWFUL_SHAPES),
@@ -137,7 +137,7 @@ LEVELS = [
 ]
 
 def set_handler(node, type, handler):
-    node.setEventHandler(type, avg.MOUSE | avg.TOUCH, handler)
+    node.setEventHandler(type, avg.TOUCH, handler)
 
 def start_capture(node, cursor_id):
     node.setEventCapture(cursor_id)
@@ -189,6 +189,17 @@ def get_heading(origin, point):
     heading = 90 - degrees  # 0 = north, 90 = east
     return (heading + 360) % 360
 
+def get_vector(heading, radius):
+    """Get the vector with the given heading in degrees (where 0 is north
+    and 90 is east) and the given radius."""
+    degrees = 90 - heading
+    radians = degrees*math.pi/180
+    return Point2D(radius*math.cos(radians), -radius*math.sin(radians))
+
+def get_length(origin, point):
+    vector = point - origin
+    return (vector.x*vector.x + vector.y*vector.y)**0.5
+
 def add_cr((c1, r1), (c2, r2)):
     """Add two (column, row) pairs together."""
     return (c1 + c2, r1 + r2)
@@ -221,9 +232,12 @@ class Piece:
         self.touches = {}  # Current positions of touches on this piece.
 
         self.grab_centroid = None  # Centroid of initial grab points.
-        self.grab_cr = None  # Initial grid position when grabbed.
+        self.grab_center = None  # Center point of this piece when grabbed.
+        self.grab_angle = None  # Heading from grab_centroid to grab_center.
+        self.grab_radius = None  # Distance from grab_centroid to grab_center.
+        self.grab_cr = None  # Grid position of this piece when grabbed.
 
-        self.grab_heading = None  # Direction indicated by initial grab points.
+        self.grab_heading = None  # Angle of ray between initial grab points.
         self.grab_grid = None  # Initial grid shape when grabbed.
 
         # Just create the nodes; self.move_to() will position them.
@@ -257,6 +271,13 @@ class Piece:
         for cr, value in self.grid.get_blocks():
             yield add_cr(self.cr, cr), value
 
+    def get_center_point(self):
+        """Get the center point of this piece, in absolute coordinates."""
+        nw_cr = self.cr
+        se_cr = add_cr(nw_cr, (self.grid.ncolumns, self.grid.nrows))
+        board_point = get_centroid(map(self.board.get_nw_point, [nw_cr, se_cr]))
+        return self.board.parent_node.getAbsPos(board_point)
+
     def is_grabbed(self):
         return self.touches
 
@@ -287,7 +308,10 @@ class Piece:
         start_capture(self.block_nodes[0], event.cursorid)
 
         # On the first or second touch, start a translation grab.
+        self.grab_center = self.get_center_point()
         self.grab_centroid = get_centroid(self.touches.values())
+        self.grab_angle = get_heading(self.grab_centroid, self.grab_center)
+        self.grab_radius = get_length(self.grab_centroid, self.grab_center)
         self.grab_cr = self.cr
 
         # On the second touch, also start a rotation grab. 
@@ -303,7 +327,10 @@ class Piece:
             end_capture(self.block_nodes[0], event.cursorid)
 
         if len(self.touches) == 1:  # Reset any remaining translation grab.
+            self.grab_center = self.get_center_point()
             self.grab_centroid = get_centroid(self.touches.values())
+            self.grab_angle = get_heading(self.grab_centroid, self.grab_center)
+            self.grab_radius = get_length(self.grab_centroid, self.grab_center)
             self.grab_cr = self.cr
 
         self.update_manip()
@@ -313,14 +340,6 @@ class Piece:
             return
 
         self.touches[event.cursorid] = event.pos
-        new_grid = self.grid
-
-        # Always update translation.
-        new_centroid = get_centroid(self.touches.values())
-        delta_centroid = new_centroid - self.grab_centroid
-        delta_c = int(round(delta_centroid.x/self.board.scale))
-        delta_r = int(round(delta_centroid.y/self.board.scale))
-        new_cr = add_cr(self.grab_cr, (delta_c, max(0, delta_r)))
 
         # If there are two touches, update rotation.
         if len(self.touches) == 2:
@@ -328,6 +347,23 @@ class Piece:
             delta_heading = new_heading - self.grab_heading
             cw_quarter_turns = int(round(delta_heading/90))
             new_grid = self.grab_grid.get_rotated(cw_quarter_turns)
+        else:
+            delta_heading = 0
+            new_grid = self.grid
+
+        # Update translation.  The center of the piece is positioned at a
+        # fixed distance from the centroid of the grab points, and at a
+        # fixed angle with respect to the line between the grab points.
+        # This creates the effect of grabbing a rigid disk; if the grab
+        # points stay the same distance apart, the two points on the piece
+        # that were initially grabbed will be anchored to the touch points.
+        new_centroid = get_centroid(self.touches.values())
+        new_center = new_centroid + get_vector(
+            self.grab_angle + delta_heading, self.grab_radius)
+        delta_center = new_center - self.grab_center
+        delta_c = int(round(delta_center.x/self.board.scale))
+        delta_r = int(round(delta_center.y/self.board.scale))
+        new_cr = add_cr(self.grab_cr, (delta_c, delta_r))
 
         if self.board.can_put_piece(self, new_cr, new_grid):
             self.move_to(new_cr, new_grid)
