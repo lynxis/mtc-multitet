@@ -216,6 +216,11 @@ def transitive_closure(marked_nodes, edges):
         marked_nodes -= closure
     return closure
 
+def shuffled(items):
+    new_items = items[:]
+    random.shuffle(new_items)
+    return new_items
+
 class Piece:
     """A falling game piece.  This class maintains a Grid for the shape of
     the piece and Nodes that display the piece, and handles player events
@@ -619,6 +624,7 @@ class Game:
             self.ticks_to_next_drop = self.ticks_per_drop
             for p in range(self.pieces_per_drop):
                 if not self.add_piece():
+                    print 'end_game: add_piece failed'
                     self.app.end_game()
                     return
 
@@ -679,20 +685,21 @@ class Game:
     def add_piece(self, c=None):
         """Place a new Piece with a randomly selected shape at a random
         rotation and position somewhere along the top of the game board."""
-        for attempt in range(1000):
-            grid = random.choice(self.shapes).get_rotated(random.randrange(4))
-            blocks = list(grid.get_blocks())
-            if c is None:  # Choose a random position.
-                min_c = min(c for (c, r), value in blocks)
-                max_c = max(c for (c, r), value in blocks)
-                c = random.randrange(-min_c, self.board.ncolumns - max_c)
-            else:  # Add the piece at the requested position.
-                c -= grid.ncolumns/2
-            cr = (c, -min(r for (c, r), value in blocks))
-            if self.board.can_put_piece(None, cr, grid):
-                self.pieces.append(Piece(self.node, self.board, cr, grid))
-                return True
-        return False  # couldn't find a location after 1000 tries
+        columns = (c is None) and range(self.board.ncolumns) or [c]
+
+        # Permute the shapes, rotations, and possible positions, so that we
+        # get a random result, but eventually try them all.
+        for shape in shuffled(self.shapes):
+            for rotation in shuffled(range(4)):
+                for c in shuffled(columns):
+                    grid = shape.get_rotated(rotation)
+                    min_r = min(r for (c, r), value in grid.get_blocks())
+                    cr = (c - grid.ncolumns/2, -min_r)
+                    if self.board.can_put_piece(None, cr, grid):
+                        self.pieces.append(
+                            Piece(self.node, self.board, cr, grid))
+                        return True
+        return False  # couldn't find anywhere to put a new piece
 
 class Multitet(AVGApp):
     multitouch = True
