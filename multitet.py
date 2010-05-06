@@ -771,7 +771,7 @@ class Multitet(AVGApp):
         fadeOut(level_words, 2000)
         self.level_label.text = 'Level %d' % self.level
 
-    def onKey(self, event):
+    def onKeyDown(self, event):
         if event.keystring == 'l':
             self.set_level(self.level + 1)
             self.ticks_to_next_level = TICKS_PER_LEVEL
