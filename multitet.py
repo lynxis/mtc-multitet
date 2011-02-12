@@ -21,8 +21,6 @@ from buttons import LabelButton
 from grid import Grid
 import math, random
 
-RESOLUTION = (1280, 720)
-
 STARTING_ZONE_NROWS = 1  # size of the starting zone, in rows
 
 MANIPULATOR_RADIUS = 70  # radius of the circular manipulator, in pixels
@@ -161,14 +159,6 @@ def lower_node(node):
     parent_node = node.getParent()
     parent_node.removeChild(node)
     parent_node.insertChild(node, 0)
-
-def create_button(parent_node, callback, **props):
-    button = LabelButton(
-        parent_node, props.get('pos', Point2D(0, 0)),
-        props.get('text', 'Button'), props.get('fontsize', 16), callback)
-    for key in props:
-        setattr(button._node, key, props[key])
-    return button
 
 def set_timeout(millis, handler):
     return avg.Player.get().setTimeout(millis, handler)
@@ -321,7 +311,7 @@ class Piece:
         self.grab_radius = get_length(self.grab_centroid, self.grab_center)
         self.grab_cr = self.cr
 
-        # On the second touch, also start a rotation grab. 
+        # On the second touch, also start a rotation grab.
         if len(self.touches) == 2:
             self.grab_heading = get_heading(*self.touches.values())
             self.grab_grid = self.grid
@@ -511,7 +501,7 @@ class Game:
         # however, this feature is disabled because of an exhaust hose in the
         # c-base multitouch table that causes extraneous touches along the top.
         # set_handler(self.starting_zone_node, avg.CURSORDOWN, self.handle_down)
-        
+
         self.pieces = []
         self.interval_id = None
         self.ticks_to_next_drop = 1
@@ -530,8 +520,10 @@ class Game:
 
     def set_scale(self, scale):
         # Resize the game board.
-        self.board.set_size(int(self.width/scale), int(self.height/scale),
-            Point2D(0, self.height % scale), scale)
+        ncolumns, nrows = int(self.width/scale), int(self.height/scale)
+        board_width = ncolumns*scale
+        self.board.set_size(ncolumns, nrows,
+            Point2D((self.width - board_width)/2, self.height % scale), scale)
         self.board_rect.pos = self.board.pos
         self.board_rect.size = self.board.size
         if self.dissolving:
@@ -569,6 +561,10 @@ class Game:
         for r in reversed(range(STARTING_ZONE_NROWS, self.board.nrows)):
             nsections = section_pattern[s]
             s = (s + 1) % len(section_pattern)
+
+            # If the resolution is too low, 4 sections are no fun.
+            if self.width < 1200 and nsections > 3:
+                nsections = 3
 
             section_min = 0
             for i in range(nsections):
@@ -711,30 +707,88 @@ class Multitet(AVGApp):
 
         self.game = None
         self.size = self._parentNode.size
+        self.text_size = 20
+        self.text_line = Point2D(0, self.text_size)
+        self.margin = Point2D(20, 20)
 
         self.background = create_node(self._parentNode, 'rect',
             size=self.size, fillcolor='000000', fillopacity=1)
         self.game_node = create_node(self._parentNode, 'div',
-            pos=Point2D(20, 20), size=self.size - Point2D(40, 40))
-        self.pause_button = create_button(
-            self._parentNode, self.leave, pos=Point2D(20, 4), text='Pause')
-        self.level_label = create_node(
-            self._parentNode, 'words', pos=Point2D(self.size.x - 20, 4),
-            text='Level 1', alignment='right')
-        self.game_over_node = create_node(self._parentNode, 'div')
-        create_node(self.game_over_node, 'rect', pos=self.get_pos(0.25, 0.25),
-            size=self.get_pos(0.5, 0.5), fillcolor='000000', fillopacity=0.7)
-        create_node(self.game_over_node, 'words', text='Game over',
-            pos=self.get_pos(0.5, 0.35), fontsize=80, alignment='center')
-        create_button(self.game_over_node, self.start_game, text='Play again',
-            fontsize=40, alignment='left', pos=self.get_pos(0.3, 0.65))
-        create_button(self.game_over_node, self.quit, text='Exit',
-            fontsize=40, alignment='right', pos=self.get_pos(0.7, 0.65))
+            pos=self.margin + self.text_line/2,
+            size=self.size - self.margin*2 - self.text_line/2)
+        self.create_button(
+            self._parentNode, self.show_about_box, 'About', 1,
+            self.margin - self.text_line/2, 'left')
+        self.level_button_nodes = []
 
+        self.game_over_box = self.create_game_over_box()
+        self.about_box = self.create_about_box()
         self.start_game()
 
-    def get_pos(self, fraction_x, fraction_y):
-        return Point2D(self.size.x*fraction_x, self.size.y*fraction_y)
+    def create_words(self, parent, text, scale=1.0, alignment='left', **props):
+        return create_node(parent, 'words', text=text,
+            fontsize=self.text_size*scale, alignment=alignment, **props)
+
+    def create_button(self, parent_node, callback, text, scale, pos, alignment):
+        padding = Point2D(self.text_size*0.4, self.text_size*0.2)
+        button = LabelButton(
+            parent_node, pos, text, self.text_size*scale, callback)
+        button._node.alignment = alignment
+        if alignment == 'left':
+            pos = button._node.pos - padding
+        if alignment == 'center':
+            pos = button._node.pos - Point2D(button._node.size.x/2, 0) - padding
+        if alignment == 'right':
+            pos = button._node.pos - Point2D(button._node.size.x, 0) - padding
+        button_box = create_node(parent_node, 'rect', pos=pos,
+            size=button._node.size + padding*2, color='ffffff',
+            fillcolor='808080', fillopacity=0.75)
+        parent_node.removeChild(button_box)
+        parent_node.insertChildBefore(button_box, button._node)
+        return [button._node, button_box]
+
+    def create_game_over_box(self):
+        box = create_node(self._parentNode, 'div')
+        create_node(box, 'rect', fillcolor='404040', fillopacity=0.75,
+            pos=self.get_pos(0.5, 0.5, -self.text_size*9, -self.text_size*6),
+            size=Point2D(self.text_size*18, self.text_size*12))
+        self.create_words(box, 'Game over', 3, alignment='center',
+            pos=self.get_pos(0.5, 0.5, 0, -self.text_size*5))
+        self.create_button(box, self.start_game, 'Play again', 1.6,
+            self.get_pos(0.5, 0.5, -self.text_size*7, self.text_size*3), 'left')
+        self.create_button(box, self.quit, 'Exit', 1.6,
+            self.get_pos(0.5, 0.5, self.text_size*7, self.text_size*3), 'right')
+        return box
+
+    def create_about_box(self):
+        box = create_node(self._parentNode, 'div')
+        create_node(box, 'rect', fillcolor='404040', fillopacity=0.75,
+            pos=self.get_pos(0.5, 0.5, -self.text_size*15, -self.text_size*10),
+            size=Point2D(self.text_size*30, self.text_size*20))
+        y = -9*self.text_size
+        for scale, line in [
+            (1.6, 'Multitetris'),
+            (1, 'Ka-Ping Yee, Martin Heistermann, Ulrich von Zadow'),
+            (1, 'http://multitetris.com/'),
+            (1, ''),
+            (1, 'Use one finger to move a piece.'),
+            (1, 'Use a second finger to rotate a piece.'),
+            (1, 'You can hold pieces in the air, or even push them up.'),
+            (1, 'But watch out: new pieces will keep coming!'),
+            (1, ''),
+            (1, 'The rows are divided into sections.  When a section of'),
+            (1, 'one row is filled with blocks, those blocks disappear.'),
+            (1, 'Keep them from piling up to the top as long as you can.')]:
+            self.create_words(box, line, scale,
+                pos=self.get_pos(0.5, 0.5, -self.text_size*14, y))
+            y += self.text_size*scale*1.2
+        self.create_button(box, self.hide_about_box, 'Continue', 1.6,
+            self.get_pos(0.5, 0.5, 0, self.text_size*7), 'center')
+        return box
+
+    def get_pos(self, fraction_x, fraction_y, offset_x=0, offset_y=0):
+        return Point2D(self.size.x*fraction_x + offset_x,
+            self.size.y*fraction_y + offset_y)
 
     def _enter(self):
         if not self.game:
@@ -744,10 +798,24 @@ class Multitet(AVGApp):
     def _leave(self):
         self.game.pause()
 
+    def show(self, node):
+        node.unlink()
+        self._parentNode.appendChild(node)
+
+    def hide(self, node):
+        node.unlink()
+
+    def show_about_box(self):
+        self.game.pause()
+        self.show(self.about_box)
+
+    def hide_about_box(self):
+        self.hide(self.about_box)
+        self.game.run()
+
     def start_game(self):
-        self.game_over_node.unlink()
-        self.level_label.unlink()
-        self._parentNode.appendChild(self.level_label)
+        self.hide(self.about_box)
+        self.hide(self.game_over_box)
         if self.game:
             self.game.destroy()
         self.game = Game(self.game_node, self, *LEVELS[0])
@@ -756,25 +824,36 @@ class Multitet(AVGApp):
 
     def end_game(self):
         self.game.pause()
-        self.game_over_node.unlink()
-        self._parentNode.appendChild(self.game_over_node)
+        self.show(self.game_over_box)
 
     def set_level(self, level):
         self.level = min(level, len(LEVELS))
         self.game.set_difficulty(*LEVELS[self.level - 1])  # level is 1-based
-        self.game.pause()
         self.game.run()
 
-        level_words = create_node(self.game_node, 'words',
-            text='Level %d' % self.level, alignment='center',
-            pos=self.get_pos(0.5, 0.3), fontsize=80, sensitive=False)
+        level_words = self.create_words(
+            self._parentNode, 'Level %d  ' % self.level, 3,
+            pos=self.get_pos(0.5, 0.3), alignment='center', sensitive=False)
         fadeOut(level_words, 2000)
-        self.level_label.text = 'Level %d' % self.level
+
+        for node in self.level_button_nodes:
+            node.unlink()
+        self.level_button_nodes = self.create_button(
+            self._parentNode, self.advance_level, 'Level %d' % self.level, 1,
+            Point2D(self.size.x - self.margin.x,
+                self.margin.y - self.text_size/2), 'right')
+
+    def advance_level(self):
+        self.set_level(self.level + 1)
+        self.ticks_to_next_level = TICKS_PER_LEVEL
 
     def onKeyDown(self, event):
         if event.keystring == 'l':
-            self.set_level(self.level + 1)
-            self.ticks_to_next_level = TICKS_PER_LEVEL
+            self.advance_level()
+        if event.keystring == 'q':
+            self.end_game()
+        if event.keystring == ' ':
+            self.show_about_box()
 
     def tick(self):
         self.ticks_to_next_level -= 1
@@ -783,8 +862,8 @@ class Multitet(AVGApp):
             self.ticks_to_next_level = TICKS_PER_LEVEL
 
     def quit(self):
-        self.start_game()
-        self.leave()
+        avg.Player.get().stop()
+        self.exit()
 
 if __name__ == '__main__':
-    Multitet.start(resolution=RESOLUTION)
+    Multitet.start(resolution=avg.Player.get().getScreenResolution())
