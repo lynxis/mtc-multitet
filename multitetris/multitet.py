@@ -15,7 +15,7 @@
 # grid space.  For grids, c refers to a column number, r refers to a row
 # number, and cr refers to a (column, row) pair.
 
-from libavg import avg, Point2D, AVGApp, AVGNode, fadeOut
+from libavg import avg, Point2D, AVGApp, AVGNode, fadeOut, gameapp
 from libavg.AVGAppUtil import getMediaDir
 from buttons import LabelButton
 from grid import Grid
@@ -699,8 +699,7 @@ class Game:
                         return True
         return False  # couldn't find anywhere to put a new piece
 
-class Multitet(AVGApp):
-    multitouch = True
+class Multitet(gameapp.GameApp):
 
     def init(self):
         self._parentNode.mediadir = getMediaDir(__file__)
@@ -866,4 +865,4 @@ class Multitet(AVGApp):
         self.exit()
 
 if __name__ == '__main__':
-    Multitet.start(resolution=avg.Player.get().getScreenResolution())
+    Multitet.start()
