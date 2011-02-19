@@ -23,7 +23,7 @@ import math, random
 
 STARTING_ZONE_NROWS = 1  # size of the starting zone, in rows
 
-MANIPULATOR_RADIUS = 70  # radius of the circular manipulator, in pixels
+MANIPULATOR_RADIUS = 140  # radius of the circular manipulator, in pixels
 
 TICKS_PER_LEVEL = 40
 
