@@ -763,7 +763,7 @@ class Multitet(gameapp.GameApp):
         box = create_node(self._parentNode, 'div')
         create_node(box, 'rect', fillcolor='404040', fillopacity=0.75,
             pos=self.get_pos(0.5, 0.5, -self.text_size*15, -self.text_size*10),
-            size=Point2D(self.text_size*30, self.text_size*20))
+            size=Point2D(self.text_size*30, self.text_size*23))
         y = -9*self.text_size
         for scale, line in [
             (1.6, 'Multitetris'),
@@ -777,12 +777,14 @@ class Multitet(gameapp.GameApp):
             (1, ''),
             (1, 'The rows are divided into sections.  When a section of'),
             (1, 'one row is filled with blocks, those blocks disappear.'),
-            (1, 'Keep them from piling up to the top as long as you can.')]:
+            (1, 'Keep them from piling up to the top as long as you can.'),
+            (1, ''),
+            (1, 'Multitetris is based on libavg.')]:
             self.create_words(box, line, scale,
                 pos=self.get_pos(0.5, 0.5, -self.text_size*14, y))
             y += self.text_size*scale*1.2
         self.create_button(box, self.hide_about_box, 'Continue', 1.6,
-            self.get_pos(0.5, 0.5, 0, self.text_size*7), 'center')
+            self.get_pos(0.5, 0.5, 0, self.text_size*9.5), 'center')
         return box
 
     def get_pos(self, fraction_x, fraction_y, offset_x=0, offset_y=0):
