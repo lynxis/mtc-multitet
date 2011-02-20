@@ -718,6 +718,10 @@ class Multitet(gameapp.GameApp):
         self.create_button(
             self._parentNode, self.show_about_box, 'About', 1,
             self.margin - self.text_line/2, 'left')
+        exit_button_pos = avg.Point2D(self._parentNode.size.x/2, 
+                self.margin.y-self.text_line.y/2)
+        self.create_button(self._parentNode, self.quit, 'Exit', 1, exit_button_pos,
+                'center')
         self.level_button_nodes = []
 
         self.game_over_box = self.create_game_over_box()
