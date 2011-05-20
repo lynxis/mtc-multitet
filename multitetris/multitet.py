@@ -866,9 +866,6 @@ class Multitet(gameapp.GameApp):
             self.set_level(self.level + 1)
             self.ticks_to_next_level = TICKS_PER_LEVEL
 
-    def quit(self):
-        avg.Player.get().stop()
-        self.exit()
 
 if __name__ == '__main__':
     Multitet.start()
