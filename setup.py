@@ -4,15 +4,15 @@
 from distutils.core import setup
 
 setup(
-    name='Multitetris',
+    name='Multitet',
     version='1.0',
     author='Ka-Ping Yee',
     author_email='<ping at zesty dot ca>',
     url='http://multitetris.com/',
     license='GPL3',
-    packages=['multitetris'],
-    scripts=['scripts/multitetris'],
+    packages=['multitet'],
+    scripts=['scripts/multitet'],
     package_data={
-            'multitetris': ['media/*.png',],
+            'multitet': ['media/*.png',],
     }
 )
