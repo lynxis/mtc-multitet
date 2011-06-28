@@ -770,7 +770,7 @@ class Multitet(gameapp.GameApp):
             size=Point2D(self.text_size*30, self.text_size*23))
         y = -9*self.text_size
         for scale, line in [
-            (1.6, 'Multitetris'),
+            (1.6, 'Multitet'),
             (1, 'Ka-Ping Yee, Martin Heistermann, Ulrich von Zadow'),
             (1, 'http://multitetris.com/'),
             (1, ''),
@@ -783,7 +783,7 @@ class Multitet(gameapp.GameApp):
             (1, 'one row is filled with blocks, those blocks disappear.'),
             (1, 'Keep them from piling up to the top as long as you can.'),
             (1, ''),
-            (1, 'Multitetris is based on libavg.')]:
+            (1, 'Multitet is based on libavg.')]:
             self.create_words(box, line, scale,
                 pos=self.get_pos(0.5, 0.5, -self.text_size*14, y))
             y += self.text_size*scale*1.2
