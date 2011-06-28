@@ -14,15 +14,15 @@
 import sys
 
 try:
-    import multitetris
+    import multitet
 except ImportError:
     sys.path = ['..', '/usr/share/games'] + sys.path
 
     try:
-        import multitetris
+        import multitet
     except ImportError:
-        sys.stderr.write('ERROR: Cannot find multitetris package: reinstall the game.\n')
+        sys.stderr.write('ERROR: Cannot find multitet package: reinstall the game.\n')
         sys.exit(1)
 
 if __name__ == '__main__':
-    multitetris.Multitet.start()
+    multitet.Multitet.start()
