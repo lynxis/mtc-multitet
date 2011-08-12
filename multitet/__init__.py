@@ -1,5 +1,5 @@
 import os
-from libavg.AVGAppUtil import getMediaDir, createImagePreviewNode
+from libavg.utils import getMediaDir, createImagePreviewNode
 from multitet import Multitet
 
 __all__ = [ 'apps', ]

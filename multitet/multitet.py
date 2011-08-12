@@ -16,7 +16,7 @@
 # number, and cr refers to a (column, row) pair.
 
 from libavg import avg, Point2D, AVGApp, AVGNode, fadeOut, gameapp
-from libavg.AVGAppUtil import getMediaDir
+from libavg.utils import getMediaDir
 from buttons import LabelButton
 from grid import Grid
 import math, random
