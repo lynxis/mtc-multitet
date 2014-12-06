@@ -14,15 +14,16 @@
 import sys
 
 try:
-    import multitet
+    from libavg import app
+    from multitet import Multitet
 except ImportError:
     sys.path = ['..', '/usr/share/games'] + sys.path
 
     try:
-        import multitet
+        from multitet import Multitet
     except ImportError:
         sys.stderr.write('ERROR: Cannot find multitet package: reinstall the game.\n')
         sys.exit(1)
 
 if __name__ == '__main__':
-    multitet.Multitet.start()
+    app.App().run(Multitet(), app_resolution='1280x720')

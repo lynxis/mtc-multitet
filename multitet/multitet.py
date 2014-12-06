@@ -15,7 +15,7 @@
 # grid space.  For grids, c refers to a column number, r refers to a row
 # number, and cr refers to a (column, row) pair.
 
-from libavg import avg, Point2D, AVGApp, AVGNode, fadeOut, gameapp
+from libavg import avg, Point2D, AVGNode, fadeOut, app, player
 from libavg.utils import getMediaDir
 from buttons import LabelButton
 from grid import Grid
@@ -699,34 +699,38 @@ class Game:
                         return True
         return False  # couldn't find anywhere to put a new piece
 
-class Multitet(gameapp.GameApp):
+class Multitet(app.MainDiv):
 
-    def init(self):
-        self._parentNode.mediadir = getMediaDir(__file__)
+    def onInit(self):
+        self.mediadir = getMediaDir(__file__)
 
         self.game = None
-        self.size = self._parentNode.size
         self.text_size = 20
         self.text_line = Point2D(0, self.text_size)
         self.margin = Point2D(20, 20)
 
-        self.background = create_node(self._parentNode, 'rect',
+        self.background = create_node(self, 'rect',
             size=self.size, fillcolor='000000', fillopacity=1)
-        self.game_node = create_node(self._parentNode, 'div',
+        self.game_node = create_node(self, 'div',
             pos=self.margin + self.text_line/2,
             size=self.size - self.margin*2 - self.text_line/2)
         self.create_button(
-            self._parentNode, self.show_about_box, 'About', 1,
+            self, self.show_about_box, 'About', 1,
             self.margin - self.text_line/2, 'left')
-        exit_button_pos = avg.Point2D(self._parentNode.size.x/2, 
+        exit_button_pos = avg.Point2D(self.size.x/2, 
                 self.margin.y-self.text_line.y/2)
-        self.create_button(self._parentNode, self.quit, 'Exit', 1, exit_button_pos,
+        self.create_button(self, self.__stop, 'Exit', 1, exit_button_pos,
                 'center')
         self.level_button_nodes = []
 
         self.game_over_box = self.create_game_over_box()
         self.about_box = self.create_about_box()
+
+        player.subscribe(player.KEY_DOWN, self.__onKeyDown)
         self.start_game()
+
+    def __stop(self):
+        player.stop()
 
     def create_words(self, parent, text, scale=1.0, alignment='left', **props):
         return create_node(parent, 'words', text=text,
@@ -751,7 +755,7 @@ class Multitet(gameapp.GameApp):
         return [button._node, button_box]
 
     def create_game_over_box(self):
-        box = create_node(self._parentNode, 'div')
+        box = create_node(self, 'div')
         create_node(box, 'rect', fillcolor='404040', fillopacity=0.75,
             pos=self.get_pos(0.5, 0.5, -self.text_size*9, -self.text_size*6),
             size=Point2D(self.text_size*18, self.text_size*12))
@@ -759,12 +763,12 @@ class Multitet(gameapp.GameApp):
             pos=self.get_pos(0.5, 0.5, 0, -self.text_size*5))
         self.create_button(box, self.start_game, 'Play again', 1.6,
             self.get_pos(0.5, 0.5, -self.text_size*7, self.text_size*3), 'left')
-        self.create_button(box, self.quit, 'Exit', 1.6,
+        self.create_button(box, self.__stop, 'Exit', 1.6,
             self.get_pos(0.5, 0.5, self.text_size*7, self.text_size*3), 'right')
         return box
 
     def create_about_box(self):
-        box = create_node(self._parentNode, 'div')
+        box = create_node(self, 'div')
         create_node(box, 'rect', fillcolor='404040', fillopacity=0.75,
             pos=self.get_pos(0.5, 0.5, -self.text_size*15, -self.text_size*10),
             size=Point2D(self.text_size*30, self.text_size*23))
@@ -805,7 +809,7 @@ class Multitet(gameapp.GameApp):
 
     def show(self, node):
         node.unlink()
-        self._parentNode.appendChild(node)
+        self.appendChild(node)
 
     def hide(self, node):
         node.unlink()
@@ -837,14 +841,14 @@ class Multitet(gameapp.GameApp):
         self.game.run()
 
         level_words = self.create_words(
-            self._parentNode, 'Level %d  ' % self.level, 3,
+            self, 'Level %d  ' % self.level, 3,
             pos=self.get_pos(0.5, 0.3), alignment='center', sensitive=False)
         fadeOut(level_words, 2000)
 
         for node in self.level_button_nodes:
             node.unlink()
         self.level_button_nodes = self.create_button(
-            self._parentNode, self.advance_level, 'Level %d' % self.level, 1,
+            self, self.advance_level, 'Level %d' % self.level, 1,
             Point2D(self.size.x - self.margin.x,
                 self.margin.y - self.text_size/2), 'right')
 
@@ -852,7 +856,7 @@ class Multitet(gameapp.GameApp):
         self.set_level(self.level + 1)
         self.ticks_to_next_level = TICKS_PER_LEVEL
 
-    def onKeyDown(self, event):
+    def __onKeyDown(self, event):
         if event.keystring == 'l':
             self.advance_level()
         if event.keystring == 'q':
@@ -868,4 +872,4 @@ class Multitet(gameapp.GameApp):
 
 
 if __name__ == '__main__':
-    Multitet.start()
+    app.App().run(Multitet(), app_resolution='1280x720')
